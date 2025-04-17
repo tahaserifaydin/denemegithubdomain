@@ -1,187 +1,282 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
 import {
-  Box,
   Container,
   Grid,
   Card,
   CardMedia,
   CardContent,
   Typography,
+  Box,
   Rating,
-  IconButton,
   Button,
+  TextField,
+  Slider,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
-  Slider,
   Chip,
+  Stack,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
 import {
+  LocationOn,
+  Star,
   Favorite,
   FavoriteBorder,
-  Sort,
-  LocationOn,
+  FilterList,
+  Search,
 } from '@mui/icons-material';
-import { hotels } from '../data/hotels';
-import HotelCard from '../components/HotelCard';
+import { useNavigate } from 'react-router-dom';
 
 const HotelList = () => {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const [filteredHotels, setFilteredHotels] = useState([]);
-  const [sortBy, setSortBy] = useState('recommended');
+  const [hotels, setHotels] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
-    priceRange: [0, 5000],
-    stars: 0,
-    type: 'all',
+    location: '',
+    minPrice: 0,
+    maxPrice: 5000,
+    rating: 0,
+    sortBy: 'price',
   });
+  const [showFilters, setShowFilters] = useState(false);
+  const navigate = useNavigate();
 
-  // Otel verilerini yükle ve filtrele
   useEffect(() => {
-    // hotels.js'den tüm otelleri al
-    let result = [...hotels];
-    
-    // Filtreleme işlemleri
-    if (filters.stars > 0) {
-      result = result.filter(hotel => Math.round(hotel.rating) >= filters.stars);
-    }
-    
-    if (filters.priceRange[0] > 0 || filters.priceRange[1] < 5000) {
-      result = result.filter(hotel => 
-        hotel.price >= filters.priceRange[0] && 
-        hotel.price <= filters.priceRange[1]
-      );
-    }
-    
-    // Sıralama işlemleri
-    switch (sortBy) {
-      case 'price_asc':
-        result.sort((a, b) => a.price - b.price);
-        break;
-      case 'price_desc':
-        result.sort((a, b) => b.price - a.price);
-        break;
-      case 'rating':
-        result.sort((a, b) => b.rating - a.rating);
-        break;
-      case 'name_asc':
-        result.sort((a, b) => a.name.localeCompare(b.name));
-        break;
-      default:
-        // Varsayılan sıralama (önerilen)
-        result.sort((a, b) => b.rating - a.rating);
-    }
-    
-    setFilteredHotels(result);
-  }, [filters, sortBy, location.search]);
+    fetchHotels();
+  }, []);
 
-  const handleSortChange = (event) => {
-    setSortBy(event.target.value);
+  const fetchHotels = async () => {
+    try {
+      const response = await fetch('http://localhost:3000/api/hotels');
+      const data = await response.json();
+      setHotels(data);
+      setLoading(false);
+    } catch (error) {
+      console.error('Otel verileri yüklenirken hata oluştu:', error);
+      setLoading(false);
+    }
   };
 
-  const handleFilterChange = (type, value) => {
+  const handleFilterChange = (field, value) => {
     setFilters(prev => ({
       ...prev,
-      [type]: value
+      [field]: value
     }));
   };
 
-  const handleInteraction = (type) => {
-    console.log(`Kullanıcı etkileşimi: ${type}`);
-    // Burada etkileşim analitiği eklenebilir
+  const handleSearch = async () => {
+    try {
+      const queryParams = new URLSearchParams();
+      if (filters.location) queryParams.append('location', filters.location);
+      if (filters.minPrice) queryParams.append('minPrice', filters.minPrice);
+      if (filters.maxPrice) queryParams.append('maxPrice', filters.maxPrice);
+      if (filters.rating) queryParams.append('rating', filters.rating);
+
+      const response = await fetch(`http://localhost:3000/api/hotels/search?${queryParams}`);
+      const data = await response.json();
+      setHotels(data);
+    } catch (error) {
+      console.error('Arama yapılırken hata oluştu:', error);
+    }
   };
 
-  return (
-    <Container className="container">
-      <Grid container className="grid-container" spacing={4}>
-        {/* Filters Section */}
-        <Grid item xs={12} md={3} className="filters-section">
-          <Card className="card">
-            <CardContent>
-              <Typography variant="h6" gutterBottom className="title">
-                Filtreler
-              </Typography>
+  const handleHotelClick = (hotelId) => {
+    navigate(`/hotel/${hotelId}`);
+  };
 
-              <Box className="box" sx={{ mb: 3 }}>
-                <Typography gutterBottom className="label">Fiyat Aralığı (₺)</Typography>
+  const handleToggleFavorite = (hotelId) => {
+    // Favori işlemleri burada yapılacak
+    console.log('Favoriye eklendi:', hotelId);
+  };
+
+  if (loading) {
+    return (
+      <Container>
+        <Typography>Yükleniyor...</Typography>
+      </Container>
+    );
+  }
+
+  return (
+    <Container maxWidth="lg" sx={{ py: 4 }}>
+      {/* Arama ve Filtreler */}
+      <Box sx={{ mb: 4 }}>
+        <Grid container spacing={2} alignItems="center">
+          <Grid item xs={12} md={4}>
+            <TextField
+              fullWidth
+              label="Konum"
+              value={filters.location}
+              onChange={(e) => handleFilterChange('location', e.target.value)}
+              InputProps={{
+                startAdornment: <LocationOn sx={{ mr: 1, color: 'action.active' }} />,
+              }}
+            />
+          </Grid>
+          <Grid item xs={12} md={2}>
+            <Button
+              fullWidth
+              variant="contained"
+              startIcon={<Search />}
+              onClick={handleSearch}
+            >
+              Ara
+            </Button>
+          </Grid>
+          <Grid item xs={12} md={2}>
+            <Button
+              fullWidth
+              variant="outlined"
+              startIcon={<FilterList />}
+              onClick={() => setShowFilters(!showFilters)}
+            >
+              Filtreler
+            </Button>
+          </Grid>
+        </Grid>
+
+        {/* Filtre Paneli */}
+        {showFilters && (
+          <Box sx={{ mt: 3, p: 3, bgcolor: 'background.paper', borderRadius: 1 }}>
+            <Grid container spacing={3}>
+              <Grid item xs={12} md={4}>
+                <Typography gutterBottom>Fiyat Aralığı</Typography>
                 <Slider
-                  value={filters.priceRange}
-                  onChange={(_, value) => handleFilterChange('priceRange', value)}
+                  value={[filters.minPrice, filters.maxPrice]}
+                  onChange={(_, newValue) => {
+                    handleFilterChange('minPrice', newValue[0]);
+                    handleFilterChange('maxPrice', newValue[1]);
+                  }}
                   valueLabelDisplay="auto"
                   min={0}
                   max={5000}
-                  className="slider"
+                  step={100}
                 />
                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <Typography variant="body2">₺{filters.priceRange[0]}</Typography>
-                  <Typography variant="body2">₺{filters.priceRange[1]}</Typography>
+                  <Typography variant="body2">₺{filters.minPrice}</Typography>
+                  <Typography variant="body2">₺{filters.maxPrice}</Typography>
                 </Box>
-              </Box>
-
-              <Box className="box" sx={{ mb: 3 }}>
-                <Typography gutterBottom className="label">Yıldız Sayısı</Typography>
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <Typography gutterBottom>Minimum Puan</Typography>
                 <Rating
-                  value={filters.stars}
-                  onChange={(_, value) => handleFilterChange('stars', value)}
-                  className="rating"
-                />
-              </Box>
-
-              <FormControl fullWidth className="form-control">
-                <InputLabel className="input-label">Konaklama Tipi</InputLabel>
-                <Select
-                  value={filters.type}
-                  onChange={(e) => handleFilterChange('type', e.target.value)}
-                  className="select"
-                >
-                  <MenuItem value="all" className="menu-item">Tümü</MenuItem>
-                  <MenuItem value="hotel" className="menu-item">Otel</MenuItem>
-                  <MenuItem value="resort" className="menu-item">Resort</MenuItem>
-                  <MenuItem value="villa" className="menu-item">Villa</MenuItem>
-                  <MenuItem value="apartment" className="menu-item">Apart</MenuItem>
-                </Select>
-              </FormControl>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        {/* Hotels List Section */}
-        <Grid item xs={12} md={9} className="hotels-list-section">
-          <Box className="box" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-            <Typography variant="h5" className="title">
-              {filteredHotels.length} sonuç bulundu
-            </Typography>
-
-            <FormControl sx={{ minWidth: 200 }} className="form-control">
-              <InputLabel className="input-label">Sırala</InputLabel>
-              <Select
-                value={sortBy}
-                onChange={handleSortChange}
-                startAdornment={<Sort className="sort-icon" />}
-                className="select"
-              >
-                <MenuItem value="recommended" className="menu-item">Önerilen</MenuItem>
-                <MenuItem value="price_asc" className="menu-item">Fiyat (Düşükten Yükseğe)</MenuItem>
-                <MenuItem value="price_desc" className="menu-item">Fiyat (Yüksekten Düşüğe)</MenuItem>
-                <MenuItem value="rating" className="menu-item">En Çok Beğenilen</MenuItem>
-                <MenuItem value="name_asc" className="menu-item">İsim (A-Z)</MenuItem>
-              </Select>
-            </FormControl>
-          </Box>
-
-          <Grid container spacing={4} className="hotel-grid">
-            {filteredHotels.map((hotel) => (
-              <Grid item xs={12} sm={6} md={4} key={hotel.id} className="hotel-grid-item">
-                <HotelCard 
-                  hotel={hotel} 
-                  onInteraction={handleInteraction}
+                  value={filters.rating}
+                  onChange={(_, newValue) => handleFilterChange('rating', newValue)}
+                  precision={0.5}
                 />
               </Grid>
-            ))}
+              <Grid item xs={12} md={4}>
+                <FormControl fullWidth>
+                  <InputLabel>Sıralama</InputLabel>
+                  <Select
+                    value={filters.sortBy}
+                    label="Sıralama"
+                    onChange={(e) => handleFilterChange('sortBy', e.target.value)}
+                  >
+                    <MenuItem value="price">Fiyata Göre</MenuItem>
+                    <MenuItem value="rating">Puana Göre</MenuItem>
+                    <MenuItem value="name">İsme Göre</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+            </Grid>
+          </Box>
+        )}
+      </Box>
+
+      {/* Otel Listesi */}
+      <Grid container spacing={3}>
+        {hotels.map((hotel) => (
+          <Grid item xs={12} key={hotel.id}>
+            <Card
+              sx={{
+                display: 'flex',
+                height: 200,
+                cursor: 'pointer',
+                '&:hover': {
+                  boxShadow: 6,
+                },
+              }}
+              onClick={() => handleHotelClick(hotel.id)}
+            >
+              <CardMedia
+                component="img"
+                sx={{ width: 300 }}
+                image={hotel.image}
+                alt={hotel.name}
+              />
+              <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <Box>
+                    <Typography variant="h6" component="div">
+                      {hotel.name}
+                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                      <LocationOn fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />
+                      <Typography variant="body2" color="text.secondary">
+                        {hotel.location}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                      <Rating value={hotel.rating} precision={0.1} readOnly size="small" />
+                      <Typography variant="body2" sx={{ ml: 1 }}>
+                        ({hotel.rating})
+                      </Typography>
+                    </Box>
+                  </Box>
+                  <Tooltip title="Favorilere Ekle">
+                    <IconButton
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleToggleFavorite(hotel.id);
+                      }}
+                    >
+                      <FavoriteBorder />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
+
+                <Stack direction="row" spacing={1} sx={{ mt: 1, mb: 2 }}>
+                  {hotel.amenities.slice(0, 3).map((amenity, index) => (
+                    <Chip
+                      key={index}
+                      label={amenity}
+                      size="small"
+                      sx={{ backgroundColor: 'primary.light', color: 'white' }}
+                    />
+                  ))}
+                  {hotel.amenities.length > 3 && (
+                    <Chip
+                      label={`+${hotel.amenities.length - 3}`}
+                      size="small"
+                      sx={{ backgroundColor: 'grey.200' }}
+                    />
+                  )}
+                </Stack>
+
+                <Box sx={{ mt: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Typography variant="h6" color="primary">
+                    ₺{hotel.price}
+                    <Typography component="span" variant="body2" color="text.secondary">
+                      {' '}/ gece
+                    </Typography>
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleHotelClick(hotel.id);
+                    }}
+                  >
+                    Detayları Gör
+                  </Button>
+                </Box>
+              </CardContent>
+            </Card>
           </Grid>
-        </Grid>
+        ))}
       </Grid>
     </Container>
   );

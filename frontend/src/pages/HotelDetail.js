@@ -1,654 +1,793 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
   Container,
   Grid,
-  Box,
   Typography,
-  Card,
-  CardContent,
-  Button,
+  Box,
   Rating,
-  Divider,
-  ImageList,
-  ImageListItem,
   Chip,
-  Paper,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
-  IconButton,
-  TextField,
-  Snackbar,
-  Alert,
-  CircularProgress,
+  Button,
+  Card,
   CardMedia,
-  Badge,
-  Stack,
-  Tooltip,
-  Modal,
+  IconButton,
   Dialog,
   DialogContent,
   DialogTitle,
-  IconButton as MuiIconButton
+  DialogActions,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Alert,
+  CardContent,
+  CardActions,
+  Avatar,
+  Divider,
+  Snackbar,
 } from '@mui/material';
-import {
-  Favorite,
-  FavoriteBorder,
-  LocationOn,
-  Pool,
-  Wifi,
-  Restaurant,
-  LocalParking,
-  Spa,
-  Comment,
-  CalendarMonth,
-  Person,
-  ArrowForward,
-  CheckCircle,
-  AcUnit,
-  Kitchen,
-  Tv,
-  Balcony,
-  Bathtub,
-  Chair,
-  Bed,
-  Close,
-  PhotoLibrary
-} from '@mui/icons-material';
-import {
-  DatePicker
-} from '@mui/x-date-pickers/DatePicker';
-import {
-  LocalizationProvider
-} from '@mui/x-date-pickers/LocalizationProvider';
-import {
-  AdapterDayjs
-} from '@mui/x-date-pickers/AdapterDayjs';
-import dayjs from 'dayjs';
-import 'dayjs/locale/tr';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import CloseIcon from '@mui/icons-material/Close';
+import { Favorite, FavoriteBorder, Comment, Delete } from '@mui/icons-material';
 import { hotels } from '../data/hotels';
-import ImageGallery from 'react-image-gallery';
-import 'react-image-gallery/styles/css/image-gallery.css';
-import roomImages from '../data/roomImages';
-
-dayjs.locale('tr');
+import { useFavorite } from '../contexts/FavoriteContext';
 
 const HotelDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const location = useLocation();
+  const { favorites, toggleFavorite } = useFavorite();
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [open, setOpen] = useState(false);
+  const [bookingOpen, setBookingOpen] = useState(false);
+  const [bookingData, setBookingData] = useState({
+    checkIn: '',
+    checkOut: '',
+    guests: 1,
+    rooms: 1,
+    name: '',
+    email: '',
+    phone: '',
+  });
+  const [bookingSuccess, setBookingSuccess] = useState(false);
   const [hotel, setHotel] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [isFavorite, setIsFavorite] = useState(false);
-  const [snackbar, setSnackbar] = useState({
-    open: false,
-    message: '',
-    severity: 'success'
-  });
-  const [selectedDates, setSelectedDates] = useState({
-    checkIn: location.state?.checkIn ? dayjs(location.state.checkIn) : dayjs(),
-    checkOut: location.state?.checkOut ? dayjs(location.state.checkOut) : dayjs().add(1, 'day'),
-  });
-  const [guestCount, setGuestCount] = useState(location.state?.guests || 2);
-  const [openGallery, setOpenGallery] = useState(false);
-  const [selectedRoomImages, setSelectedRoomImages] = useState([]);
-  const [galleryTitle, setGalleryTitle] = useState('');
+  const [reviews, setReviews] = useState([]);
+  const [openReviewDialog, setOpenReviewDialog] = useState(false);
+  const [newReview, setNewReview] = useState({ rating: 0, comment: '' });
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [sortReviews, setSortReviews] = useState('newest');
+  const [filterRating, setFilterRating] = useState(0);
+  const [currentUser] = useState("Kullanıcı Adı"); // Gerçek uygulamada kullanıcı bilgisi kullanılacak
 
   useEffect(() => {
-    // Otel verilerini hotels.js dosyasından al
-    const hotelData = hotels.find(h => h.id === parseInt(id));
-    
-    if (hotelData) {
-      setHotel(hotelData);
-      
-      // Favorilerde olup olmadığını kontrol et
-      const favorites = JSON.parse(localStorage.getItem('favorites')) || [];
-      const isInFavorites = favorites.some(fav => fav.id === hotelData.id);
-      setIsFavorite(isInFavorites);
-    }
-    
-    // Yükleme efekti için kısa bir gecikme
-    setTimeout(() => {
-      setLoading(false);
-    }, 800);
+    const fetchHotelDetails = async () => {
+      try {
+        // Örnek veri - API entegrasyonu yapılacak
+        const hotelData = {
+          id: 1,
+          name: "Grand Luxury Hotel",
+          location: "İstanbul, Türkiye",
+          rating: 4.8,
+          price: 2500,
+          type: "hotel",
+          description: "Boğaz manzaralı lüks otelimiz, şehrin kalbinde yer almaktadır. Modern odalar, spa merkezi ve dünya mutfağından lezzetler sunan restoranımızla misafirlerimize unutulmaz bir deneyim sunuyoruz.",
+          image: "https://images.unsplash.com/photo-1564501049412-61c50449b63f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80",
+          images: [
+            "https://images.unsplash.com/photo-1564501049412-61c50449b63f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80",
+            "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80",
+            "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80"
+          ],
+          amenities: ["Ücretsiz WiFi", "Havuz", "Spa", "Restoran", "Otopark"],
+          roomTypes: [
+            {
+              id: 1,
+              name: "Standart Oda",
+              price: 2000,
+              capacity: 2,
+              description: "Boğaz manzaralı standart oda",
+              features: ["Klima", "Mini Bar", "TV", "Ücretsiz WiFi"]
+            },
+            {
+              id: 2,
+              name: "Deluxe Oda",
+              price: 3000,
+              capacity: 2,
+              description: "Boğaz manzaralı deluxe oda",
+              features: ["Klima", "Mini Bar", "TV", "Ücretsiz WiFi", "Jakuzi"]
+            }
+          ]
+        };
+
+        const reviewsData = [
+          {
+            id: 1,
+            user: "Ahmet Yılmaz",
+            rating: 5,
+            comment: "Harika bir otel, kesinlikle tavsiye ederim!",
+            date: "2024-03-15"
+          },
+          {
+            id: 2,
+            user: "Ayşe Demir",
+            rating: 4,
+            comment: "Konumu ve hizmeti çok iyi, tekrar geleceğim.",
+            date: "2024-03-10"
+          }
+        ];
+
+        setHotel(hotelData);
+        setReviews(reviewsData);
+      } catch (error) {
+        console.error('Error fetching hotel details:', error);
+        setSnackbar({
+          open: true,
+          message: 'Otel detayları yüklenirken bir hata oluştu',
+          severity: 'error'
+        });
+      }
+    };
+
+    fetchHotelDetails();
   }, [id]);
 
-  const handleFavoriteToggle = () => {
-    const newFavoriteStatus = !isFavorite;
-    setIsFavorite(newFavoriteStatus);
-    
-    // localStorage'da favorileri güncelle
-    const favorites = JSON.parse(localStorage.getItem('favorites')) || [];
-    
-    if (newFavoriteStatus) {
-      const updatedFavorites = [...favorites, hotel];
-      localStorage.setItem('favorites', JSON.stringify(updatedFavorites));
-      setSnackbar({
-        open: true,
-        message: 'Otel favorilere eklendi',
-        severity: 'success'
-      });
-    } else {
-      const updatedFavorites = favorites.filter(fav => fav.id !== hotel.id);
-      localStorage.setItem('favorites', JSON.stringify(updatedFavorites));
-      setSnackbar({
-        open: true,
-        message: 'Otel favorilerden çıkarıldı',
-        severity: 'info'
-      });
-    }
+  const handlePreviousImage = () => {
+    setCurrentImageIndex((prevIndex) => 
+      prevIndex === 0 ? hotel.images.length - 1 : prevIndex - 1
+    );
   };
 
-  const handleBooking = () => {
-    if (!selectedDates.checkIn || !selectedDates.checkOut) {
-      setSnackbar({
-        open: true,
-        message: 'Lütfen giriş ve çıkış tarihlerini seçin',
-        severity: 'error'
-      });
-      return;
-    }
-    
-    navigate(`/booking/${id}`, {
+  const handleNextImage = () => {
+    setCurrentImageIndex((prevIndex) => 
+      prevIndex === hotel.images.length - 1 ? 0 : prevIndex + 1
+    );
+  };
+
+  const handleImageClick = () => {
+    setOpen(true);
+  };
+
+  const handleClose = () => {
+    setOpen(false);
+  };
+
+  const handleBookingOpen = () => {
+    setBookingOpen(true);
+  };
+
+  const handleBookingClose = () => {
+    setBookingOpen(false);
+    setBookingSuccess(false);
+  };
+
+  const handleBookingChange = (e) => {
+    const { name, value } = e.target;
+    setBookingData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleBookingSubmit = (e) => {
+    e.preventDefault();
+    // Burada rezervasyon işlemi yapılacak
+    console.log('Rezervasyon bilgileri:', bookingData);
+    setBookingSuccess(true);
+    setTimeout(() => {
+      handleBookingClose();
+    }, 3000);
+  };
+
+  const handleBookingClick = () => {
+    navigate('/payment', {
       state: {
-        checkIn: selectedDates.checkIn.format('YYYY-MM-DD'),
-        checkOut: selectedDates.checkOut.format('YYYY-MM-DD'),
-        guests: guestCount,
+        hotelId: hotel.id,
+        hotelName: hotel.name,
+        totalPrice: hotel.price,
+        roomTypes: hotel.roomTypes,
+        checkIn: new Date().toISOString().split('T')[0],
+        checkOut: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        guests: 1,
       },
     });
   };
 
-  const handleCloseSnackbar = () => {
-    setSnackbar({...snackbar, open: false});
-  };
+  const handleReviewSubmit = async () => {
+    try {
+      // API'ye yorum gönderme işlemi
+      const review = {
+        ...newReview,
+        id: Date.now(), // Geçici ID
+        hotelId: hotel.id,
+        date: new Date().toISOString().split('T')[0],
+        user: "Kullanıcı Adı" // Gerçek uygulamada kullanıcı bilgisi kullanılacak
+      };
 
-  const calculateNights = () => {
-    if (!selectedDates.checkIn || !selectedDates.checkOut) return 0;
-    return selectedDates.checkOut.diff(selectedDates.checkIn, 'day');
-  };
-
-  const calculateTotalPrice = () => {
-    const nights = calculateNights();
-    return hotel ? hotel.price * nights * guestCount : 0;
-  };
-
-  const getFeatureIcon = (feature) => {
-    switch (feature.toLowerCase()) {
-      case 'klima':
-        return <AcUnit fontSize="small" />;
-      case 'minibar':
-        return <Kitchen fontSize="small" />;
-      case 'ücretsiz wi-fi':
-        return <Wifi fontSize="small" />;
-      case 'tv':
-        return <Tv fontSize="small" />;
-      case 'balkon':
-        return <Balcony fontSize="small" />;
-      case 'jakuzi':
-        return <Bathtub fontSize="small" />;
-      case 'oturma alanı':
-        return <Chair fontSize="small" />;
-      case '2 yatak odası':
-        return <Bed fontSize="small" />;
-      default:
-        return null;
+      setReviews([...reviews, review]);
+      setSnackbar({
+        open: true,
+        message: 'Yorumunuz başarıyla eklendi',
+        severity: 'success'
+      });
+      setOpenReviewDialog(false);
+      setNewReview({ rating: 0, comment: '' });
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: 'Yorum eklenirken bir hata oluştu',
+        severity: 'error'
+      });
     }
   };
 
-  const getAvailabilityColor = (availability) => {
-    if (availability <= 2) return 'error';
-    if (availability <= 5) return 'warning';
-    return 'success';
-  };
-
-  const getAvailabilityText = (availability) => {
-    if (availability <= 2) return 'Son birkaç oda kaldı!';
-    if (availability <= 5) return 'Sınırlı sayıda oda mevcut';
-    return 'Müsait';
-  };
-
-  const handleOpenGallery = (room) => {
-    // Oda resimlerini roomImages.js dosyasından al
-    const roomKey = `${id}-${room.type}`;
-    
-    // roomImages içinde bu oda için resimler var mı kontrol et
-    if (roomImages[roomKey]) {
-      setSelectedRoomImages(roomImages[roomKey]);
-      console.log(`Oda resimleri bulundu: ${roomKey}`, roomImages[roomKey]);
-    } else {
-      // Eğer roomImages içinde yoksa, odanın kendi resmini kullan
-      console.log(`Oda resimleri bulunamadı: ${roomKey}, varsayılan resim kullanılıyor`);
-      setSelectedRoomImages([
-        {
-          original: room.image,
-          thumbnail: room.image,
-          description: room.type
-        }
-      ]);
+  const handleDeleteReview = async (reviewId) => {
+    try {
+      // API'ye yorum silme isteği gönderilecek
+      setReviews(reviews.filter(review => review.id !== reviewId));
+      setSnackbar({
+        open: true,
+        message: 'Yorumunuz başarıyla silindi',
+        severity: 'success'
+      });
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: 'Yorum silinirken bir hata oluştu',
+        severity: 'error'
+      });
     }
-    
-    setGalleryTitle(room.type);
-    setOpenGallery(true);
   };
 
-  const handleCloseGallery = () => {
-    setOpenGallery(false);
-  };
-
-  if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
+  const sortedAndFilteredReviews = [...reviews]
+    .filter(review => filterRating === 0 || review.rating === filterRating)
+    .sort((a, b) => {
+      if (sortReviews === 'newest') {
+        return new Date(b.date) - new Date(a.date);
+      } else if (sortReviews === 'oldest') {
+        return new Date(a.date) - new Date(b.date);
+      } else if (sortReviews === 'highest') {
+        return b.rating - a.rating;
+      } else {
+        return a.rating - b.rating;
+      }
+    });
 
   if (!hotel) {
     return (
-      <Container sx={{ py: 4 }}>
-        <Typography variant="h5" align="center">
-          Otel bulunamadı
-        </Typography>
+      <Container>
+        <Typography variant="h5">Yükleniyor...</Typography>
       </Container>
     );
   }
 
   return (
-    <Container sx={{ py: 4 }}>
-      <Grid container spacing={3}>
-        {/* Sol Sütun */}
-        <Grid item xs={12} md={8}>
-          {/* Otel Görselleri */}
-          <Box sx={{ position: 'relative' }}>
-            <img 
-              src={hotel.image} 
-              alt={hotel.name} 
-              style={{ 
-                width: '100%', 
-                height: '400px', 
-                objectFit: 'cover', 
-                borderRadius: '8px' 
-              }} 
-            />
-            <IconButton 
-              onClick={handleFavoriteToggle} 
-              sx={{ 
-                position: 'absolute', 
-                top: 16, 
-                right: 16, 
-                backgroundColor: 'rgba(255, 255, 255, 0.8)',
-                '&:hover': {
-                  backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                }
-              }}
-            >
-              {isFavorite ? 
-                <Favorite sx={{ color: '#FF385C' }} /> : 
-                <FavoriteBorder sx={{ color: '#FF385C' }} />
-              }
-            </IconButton>
-          </Box>
+    <Box sx={{ 
+      minHeight: '100vh',
+      backgroundColor: '#f5f5f5',
+      py: 4
+    }}>
+      <Container maxWidth="lg">
+        <Button
+          startIcon={<ArrowBackIcon />}
+          onClick={() => navigate(-1)}
+          sx={{ 
+            mb: 2,
+            color: 'primary.main',
+            '&:hover': {
+              backgroundColor: 'rgba(25, 118, 210, 0.04)'
+            }
+          }}
+        >
+          Geri Dön
+        </Button>
 
-          {/* Otel Bilgileri */}
-          <Box sx={{ mt: 3 }}>
-            <Typography variant="h4" gutterBottom fontWeight="bold">
-              {hotel.name}
-            </Typography>
-
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-              <LocationOn color="primary" fontSize="small" />
-              <Typography variant="subtitle1" sx={{ ml: 0.5 }}>
-                {hotel.location}
-              </Typography>
-              <Divider orientation="vertical" flexItem sx={{ mx: 2 }} />
-              <Rating value={hotel.rating} precision={0.5} readOnly size="small" />
-              <Typography variant="body2" sx={{ ml: 0.5 }}>
-                ({hotel.rating})
-              </Typography>
-            </Box>
-
-            <Divider sx={{ my: 2 }} />
-
-            <Typography variant="h6" gutterBottom>
-              Otel Hakkında
-            </Typography>
-            <Typography variant="body1" paragraph>
-              {hotel.description}
-            </Typography>
-
-            {/* Özellikler */}
-            <Typography variant="h6" gutterBottom sx={{ mt: 3 }}>
-              Otel Özellikleri
-            </Typography>
-            <Grid container spacing={1}>
-              {hotel.amenities.map((amenity, index) => (
-                <Grid item key={index}>
-                  <Chip
-                    icon={
-                      amenity.toLowerCase().includes('havuz') ? <Pool fontSize="small" /> :
-                      amenity.toLowerCase().includes('wifi') ? <Wifi fontSize="small" /> :
-                      amenity.toLowerCase().includes('restoran') ? <Restaurant fontSize="small" /> :
-                      amenity.toLowerCase().includes('otopark') ? <LocalParking fontSize="small" /> :
-                      <Spa fontSize="small" />
-                    }
-                    label={amenity}
-                    variant="outlined"
-                    size="small"
-                  />
-                </Grid>
-              ))}
-            </Grid>
-
-            {/* Oda Tipleri */}
-            <Typography variant="h6" gutterBottom sx={{ mt: 4 }}>
-              Oda Tipleri
-            </Typography>
-            <Grid container spacing={3}>
-              {hotel.rooms.map((room, index) => (
-                <Grid item xs={12} key={index}>
-                  <Card variant="outlined" sx={{ 
-                    overflow: 'hidden',
-                    transition: 'transform 0.3s, box-shadow 0.3s',
-                    '&:hover': {
-                      transform: 'translateY(-4px)',
-                      boxShadow: 3
-                    }
-                  }}>
-                    <Grid container>
-                      <Grid item xs={12} md={4} sx={{ position: 'relative' }}>
-                        <CardMedia
-                          component="img"
-                          height="100%"
-                          image={room.image}
-                          alt={room.type}
-                          sx={{ 
-                            height: { xs: 200, md: '100%' },
-                            objectFit: 'cover',
-                            cursor: 'pointer'
-                          }}
-                          onClick={() => handleOpenGallery(room)}
-                        />
-                        <Button
-                          variant="contained"
-                          color="primary"
-                          startIcon={<PhotoLibrary />}
-                          size="small"
-                          onClick={() => handleOpenGallery(room)}
-                          sx={{
-                            position: 'absolute',
-                            bottom: 10,
-                            right: 10,
-                            backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                            '&:hover': {
-                              backgroundColor: 'rgba(0, 0, 0, 0.9)',
-                            }
-                          }}
-                        >
-                          Tüm Fotoğraflar
-                        </Button>
-                      </Grid>
-                      <Grid item xs={12} md={8}>
-                        <CardContent sx={{ p: 3 }}>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                            <Box>
-                              <Typography variant="h6" fontWeight="bold">
-                                {room.type}
-                              </Typography>
-                              <Typography variant="body2" color="text.secondary">
-                                Kapasite: {room.capacity} kişi
-                              </Typography>
-                            </Box>
-                            <Box sx={{ textAlign: 'right' }}>
-                              <Typography variant="h6" color="primary" fontWeight="bold">
-                                ₺{room.price}
-                              </Typography>
-                              <Typography variant="caption" color="text.secondary">
-                                gecelik
-                              </Typography>
-                            </Box>
-                          </Box>
-                          
-                          <Divider sx={{ my: 2 }} />
-                          
-                          <Typography variant="subtitle2" gutterBottom>
-                            Oda Özellikleri
-                          </Typography>
-                          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>
-                            {room.features.map((feature, idx) => (
-                              <Tooltip key={idx} title={feature}>
-                                <Chip
-                                  icon={getFeatureIcon(feature)}
-                                  label={feature}
-                                  size="small"
-                                  variant="outlined"
-                                  sx={{ mb: 1 }}
-                                />
-                              </Tooltip>
-                            ))}
-                          </Stack>
-                          
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
-                            <Badge 
-                              color={getAvailabilityColor(room.availability)} 
-                              badgeContent={room.availability} 
-                              max={10}
-                              sx={{ '& .MuiBadge-badge': { fontSize: '0.75rem', height: '22px', minWidth: '22px' } }}
-                            >
-                              <Typography variant="body2" sx={{ mr: 1 }}>
-                                Müsait Oda:
-                              </Typography>
-                            </Badge>
-                            <Chip 
-                              label={getAvailabilityText(room.availability)} 
-                              color={getAvailabilityColor(room.availability)} 
-                              size="small"
-                              variant="outlined"
-                            />
-                            <Button 
-                              variant="contained" 
-                              size="small"
-                              onClick={() => handleBooking()}
-                              sx={{ 
-                                ml: 'auto',
-                                backgroundColor: '#FF385C',
-                                '&:hover': {
-                                  backgroundColor: '#E61E4D',
-                                }
-                              }}
-                            >
-                              Rezervasyon Yap
-                            </Button>
-                          </Box>
-                        </CardContent>
-                      </Grid>
-                    </Grid>
-                  </Card>
-                </Grid>
-              ))}
-            </Grid>
-          </Box>
-        </Grid>
-
-        {/* Sağ Sütun - Rezervasyon Kartı */}
-        <Grid item xs={12} md={4}>
-          <Card sx={{ 
-            position: 'sticky', 
-            top: 24, 
-            borderRadius: 2,
-            boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-          }}>
-            <CardContent>
-              <Typography variant="h5" gutterBottom fontWeight="bold">
-                Rezervasyon
-              </Typography>
-              
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-                <Typography variant="h6" color="primary" fontWeight="bold">
-                  ₺{hotel.price}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  gecelik / kişi başı
-                </Typography>
-              </Box>
-              
-              <Divider sx={{ my: 2 }} />
-              
-              <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="tr">
-                <Box sx={{ mb: 2 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                    <CalendarMonth fontSize="small" color="primary" />
-                    <Typography variant="subtitle2" sx={{ ml: 1 }}>
-                      Tarih Seçimi
-                    </Typography>
-                  </Box>
-                  <Grid container spacing={2}>
-                    <Grid item xs={6}>
-                      <DatePicker
-                        label="Giriş Tarihi"
-                        value={selectedDates.checkIn}
-                        onChange={(newValue) => setSelectedDates({...selectedDates, checkIn: newValue})}
-                        minDate={dayjs()}
-                        format="DD MMMM"
-                        slotProps={{ textField: { size: 'small', fullWidth: true } }}
-                      />
-                    </Grid>
-                    <Grid item xs={6}>
-                      <DatePicker
-                        label="Çıkış Tarihi"
-                        value={selectedDates.checkOut}
-                        onChange={(newValue) => setSelectedDates({...selectedDates, checkOut: newValue})}
-                        minDate={selectedDates.checkIn?.add(1, 'day') || dayjs().add(1, 'day')}
-                        format="DD MMMM"
-                        slotProps={{ textField: { size: 'small', fullWidth: true } }}
-                      />
-                    </Grid>
-                  </Grid>
-                </Box>
-              </LocalizationProvider>
-              
-              <Box sx={{ mb: 3 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                  <Person fontSize="small" color="primary" />
-                  <Typography variant="subtitle2" sx={{ ml: 1 }}>
-                    Misafir Sayısı
-                  </Typography>
-                </Box>
-                <TextField
-                  type="number"
-                  value={guestCount}
-                  onChange={(e) => setGuestCount(Math.max(1, Math.min(10, parseInt(e.target.value) || 1)))}
-                  InputProps={{ inputProps: { min: 1, max: 10 } }}
-                  size="small"
-                  fullWidth
-                />
-              </Box>
-              
-              <Divider sx={{ my: 2 }} />
-              
-              <Box sx={{ mb: 2 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography variant="body2">
-                    ₺{hotel.price} x {calculateNights()} gece x {guestCount} kişi
-                  </Typography>
-                  <Typography variant="body2">
-                    ₺{calculateTotalPrice()}
-                  </Typography>
-                </Box>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography variant="body2">
-                    Hizmet bedeli
-                  </Typography>
-                  <Typography variant="body2">
-                    ₺{Math.round(calculateTotalPrice() * 0.05)}
-                  </Typography>
-                </Box>
-              </Box>
-              
-              <Divider sx={{ my: 2 }} />
-              
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
-                <Typography variant="subtitle1" fontWeight="bold">
-                  Toplam
-                </Typography>
-                <Typography variant="subtitle1" fontWeight="bold">
-                  ₺{calculateTotalPrice() + Math.round(calculateTotalPrice() * 0.05)}
-                </Typography>
-              </Box>
-              
-              <Button
-                variant="contained"
-                fullWidth
-                size="large"
-                onClick={handleBooking}
-                endIcon={<ArrowForward />}
+        <Grid container spacing={4}>
+          <Grid item xs={12} md={8}>
+            <Box sx={{ 
+              position: 'relative',
+              borderRadius: 2,
+              overflow: 'hidden',
+              boxShadow: 3
+            }}>
+              <CardMedia
+                component="img"
+                height="400"
+                image={hotel?.images?.[currentImageIndex] || hotel?.image}
+                alt={hotel?.name}
+                onClick={handleImageClick}
                 sx={{ 
-                  py: 1.5, 
-                  borderRadius: 2,
-                  backgroundColor: '#FF385C',
+                  cursor: 'pointer',
+                  transition: 'transform 0.3s',
                   '&:hover': {
-                    backgroundColor: '#E61E4D',
+                    transform: 'scale(1.02)'
+                  }
+                }}
+              />
+              <IconButton
+                onClick={handlePreviousImage}
+                sx={{
+                  position: 'absolute',
+                  left: 8,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  bgcolor: 'rgba(255, 255, 255, 0.8)',
+                  '&:hover': { 
+                    bgcolor: 'rgba(255, 255, 255, 0.9)',
+                    color: 'primary.main'
                   }
                 }}
               >
-                Rezervasyon Yap
-              </Button>
-              
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mt: 2 }}>
-                <CheckCircle fontSize="small" color="success" sx={{ mr: 1 }} />
-                <Typography variant="caption" color="text.secondary">
-                  Şimdi rezervasyon yapın, sonra ödeyin
+                <ArrowBackIcon />
+              </IconButton>
+              <IconButton
+                onClick={handleNextImage}
+                sx={{
+                  position: 'absolute',
+                  right: 8,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  bgcolor: 'rgba(255, 255, 255, 0.8)',
+                  '&:hover': { 
+                    bgcolor: 'rgba(255, 255, 255, 0.9)',
+                    color: 'primary.main'
+                  }
+                }}
+              >
+                <ArrowForwardIcon />
+              </IconButton>
+            </Box>
+
+            <Box sx={{ 
+              mt: 2, 
+              display: 'flex', 
+              gap: 1, 
+              overflowX: 'auto',
+              pb: 1
+            }}>
+              {hotel.images.map((image, index) => (
+                <CardMedia
+                  key={index}
+                  component="img"
+                  height="80"
+                  image={image}
+                  alt={`${hotel.name} - ${index + 1}`}
+                  onClick={() => setCurrentImageIndex(index)}
+                  sx={{
+                    width: 120,
+                    cursor: 'pointer',
+                    borderRadius: 1,
+                    border: currentImageIndex === index ? '2px solid #1976d2' : 'none',
+                    transition: 'transform 0.2s',
+                    '&:hover': {
+                      transform: 'scale(1.05)'
+                    }
+                  }}
+                />
+              ))}
+            </Box>
+          </Grid>
+
+          <Grid item xs={12} md={4}>
+            <Card sx={{ 
+              p: 3, 
+              height: '100%',
+              borderRadius: 2,
+              boxShadow: 3,
+              backgroundColor: 'white'
+            }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <Typography variant="h4" gutterBottom sx={{ color: 'primary.main' }}>
+                  {hotel.name}
+                </Typography>
+                <IconButton
+                  color="error"
+                  onClick={() => toggleFavorite(hotel)}
+                >
+                  {favorites.some((fav) => fav.id === hotel.id) ? (
+                    <Favorite />
+                  ) : (
+                    <FavoriteBorder />
+                  )}
+                </IconButton>
+              </Box>
+              <Typography variant="subtitle1" color="text.secondary" gutterBottom>
+                {hotel.location}
+              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                <Rating value={hotel.rating} precision={0.1} readOnly />
+                <Typography variant="body2" color="text.secondary" sx={{ ml: 1 }}>
+                  ({reviews.length} değerlendirme)
                 </Typography>
               </Box>
-            </CardContent>
-          </Card>
+              <Typography variant="h5" color="primary" gutterBottom>
+                {hotel.price} TL / gece
+              </Typography>
+              <Typography variant="body1" paragraph sx={{ color: 'text.secondary' }}>
+                {hotel.description}
+              </Typography>
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="subtitle1" gutterBottom sx={{ color: 'primary.main' }}>
+                  Özellikler:
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                  {hotel.amenities.map((amenity, index) => (
+                    <Chip
+                      key={index}
+                      label={amenity}
+                      color="primary"
+                      variant="outlined"
+                      sx={{
+                        '&:hover': {
+                          backgroundColor: 'primary.main',
+                          color: 'white'
+                        }
+                      }}
+                    />
+                  ))}
+                </Box>
+              </Box>
+              <Button
+                variant="contained"
+                color="primary"
+                size="large"
+                onClick={handleBookingClick}
+                sx={{ mt: 2 }}
+              >
+                Rezervasyon Yap
+              </Button>
+            </Card>
+          </Grid>
         </Grid>
-      </Grid>
-      
-      {/* Resim Galerisi Modal */}
-      <Dialog
-        open={openGallery}
-        onClose={handleCloseGallery}
-        maxWidth="lg"
-        fullWidth
-      >
-        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="h6">{galleryTitle} - Fotoğraf Galerisi</Typography>
-          <MuiIconButton edge="end" color="inherit" onClick={handleCloseGallery} aria-label="close">
-            <Close />
-          </MuiIconButton>
-        </DialogTitle>
-        <DialogContent dividers>
-          {selectedRoomImages.length > 0 ? (
-            <ImageGallery 
-              items={selectedRoomImages} 
-              showPlayButton={false}
-              showFullscreenButton={true}
-              showThumbnails={true}
-              showBullets={false}
-              showNav={true}
-              slideInterval={3000}
-              slideDuration={450}
-              lazyLoad={true}
-            />
+
+        <Dialog
+          open={open}
+          onClose={handleClose}
+          maxWidth="lg"
+          fullWidth
+          PaperProps={{
+            sx: {
+              borderRadius: 2,
+              overflow: 'hidden'
+            }
+          }}
+        >
+          <DialogContent sx={{ p: 0 }}>
+            <Box sx={{ position: 'relative' }}>
+              <CardMedia
+                component="img"
+                image={hotel.images[currentImageIndex]}
+                alt={hotel.name}
+                sx={{ width: '100%', height: 'auto' }}
+              />
+              <IconButton
+                onClick={handlePreviousImage}
+                sx={{
+                  position: 'absolute',
+                  left: 8,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  bgcolor: 'rgba(255, 255, 255, 0.8)',
+                  '&:hover': { 
+                    bgcolor: 'rgba(255, 255, 255, 0.9)',
+                    color: 'primary.main'
+                  }
+                }}
+              >
+                <ArrowBackIcon />
+              </IconButton>
+              <IconButton
+                onClick={handleNextImage}
+                sx={{
+                  position: 'absolute',
+                  right: 8,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  bgcolor: 'rgba(255, 255, 255, 0.8)',
+                  '&:hover': { 
+                    bgcolor: 'rgba(255, 255, 255, 0.9)',
+                    color: 'primary.main'
+                  }
+                }}
+              >
+                <ArrowForwardIcon />
+              </IconButton>
+            </Box>
+          </DialogContent>
+        </Dialog>
+
+        {/* Rezervasyon Dialog */}
+        <Dialog 
+          open={bookingOpen} 
+          onClose={handleBookingClose}
+          maxWidth="sm"
+          fullWidth
+          PaperProps={{
+            sx: {
+              borderRadius: 2,
+              p: 2
+            }
+          }}
+        >
+          <DialogTitle sx={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center',
+            pb: 2
+          }}>
+            <Typography variant="h5" sx={{ color: 'primary.main' }}>
+              Rezervasyon Yap
+            </Typography>
+            <IconButton onClick={handleBookingClose}>
+              <CloseIcon />
+            </IconButton>
+          </DialogTitle>
+          <DialogContent>
+            {bookingSuccess ? (
+              <Alert severity="success" sx={{ mt: 2 }}>
+                Rezervasyonunuz başarıyla alındı! En kısa sürede sizinle iletişime geçeceğiz.
+              </Alert>
+            ) : (
+              <form onSubmit={handleBookingSubmit}>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      label="Giriş Tarihi"
+                      type="date"
+                      name="checkIn"
+                      value={bookingData.checkIn}
+                      onChange={handleBookingChange}
+                      InputLabelProps={{ shrink: true }}
+                      required
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      label="Çıkış Tarihi"
+                      type="date"
+                      name="checkOut"
+                      value={bookingData.checkOut}
+                      onChange={handleBookingChange}
+                      InputLabelProps={{ shrink: true }}
+                      required
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <FormControl fullWidth>
+                      <InputLabel>Misafir Sayısı</InputLabel>
+                      <Select
+                        name="guests"
+                        value={bookingData.guests}
+                        onChange={handleBookingChange}
+                        label="Misafir Sayısı"
+                        required
+                      >
+                        {[1, 2, 3, 4, 5, 6].map(num => (
+                          <MenuItem key={num} value={num}>{num} Kişi</MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <FormControl fullWidth>
+                      <InputLabel>Oda Sayısı</InputLabel>
+                      <Select
+                        name="rooms"
+                        value={bookingData.rooms}
+                        onChange={handleBookingChange}
+                        label="Oda Sayısı"
+                        required
+                      >
+                        {[1, 2, 3, 4].map(num => (
+                          <MenuItem key={num} value={num}>{num} Oda</MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      label="Ad Soyad"
+                      name="name"
+                      value={bookingData.name}
+                      onChange={handleBookingChange}
+                      required
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      label="E-posta"
+                      type="email"
+                      name="email"
+                      value={bookingData.email}
+                      onChange={handleBookingChange}
+                      required
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      label="Telefon"
+                      name="phone"
+                      value={bookingData.phone}
+                      onChange={handleBookingChange}
+                      required
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <Button
+                      type="submit"
+                      variant="contained"
+                      color="primary"
+                      fullWidth
+                      size="large"
+                      sx={{ mt: 2 }}
+                    >
+                      Rezervasyonu Tamamla
+                    </Button>
+                  </Grid>
+                </Grid>
+              </form>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Yorumlar Bölümü */}
+        <Box sx={{ mt: 4 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="h5" gutterBottom>
+              Yorumlar ({reviews.length})
+            </Typography>
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<Comment />}
+              onClick={() => setOpenReviewDialog(true)}
+              sx={{ 
+                borderRadius: 2,
+                px: 3,
+                py: 1
+              }}
+            >
+              Yorum Yap
+            </Button>
+          </Box>
+
+          {/* Yorum Filtreleme ve Sıralama */}
+          <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+            <FormControl sx={{ minWidth: 120 }}>
+              <InputLabel>Sırala</InputLabel>
+              <Select
+                value={sortReviews}
+                onChange={(e) => setSortReviews(e.target.value)}
+                label="Sırala"
+              >
+                <MenuItem value="newest">En Yeni</MenuItem>
+                <MenuItem value="oldest">En Eski</MenuItem>
+                <MenuItem value="highest">En Yüksek Puan</MenuItem>
+                <MenuItem value="lowest">En Düşük Puan</MenuItem>
+              </Select>
+            </FormControl>
+            <FormControl sx={{ minWidth: 120 }}>
+              <InputLabel>Filtrele</InputLabel>
+              <Select
+                value={filterRating}
+                onChange={(e) => setFilterRating(e.target.value)}
+                label="Filtrele"
+              >
+                <MenuItem value={0}>Tüm Puanlar</MenuItem>
+                <MenuItem value={5}>5 Yıldız</MenuItem>
+                <MenuItem value={4}>4 Yıldız</MenuItem>
+                <MenuItem value={3}>3 Yıldız</MenuItem>
+                <MenuItem value={2}>2 Yıldız</MenuItem>
+                <MenuItem value={1}>1 Yıldız</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
+
+          <Divider sx={{ mb: 2 }} />
+          {reviews.length === 0 ? (
+            <Typography variant="body1" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+              Henüz yorum yapılmamış. İlk yorumu siz yapın!
+            </Typography>
           ) : (
-            <Typography variant="body1" align="center">Resim bulunamadı</Typography>
+            sortedAndFilteredReviews.map((review) => (
+              <Card key={review.id} sx={{ mb: 2 }}>
+                <CardContent>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                      <Avatar sx={{ mr: 2 }}>{review.user[0]}</Avatar>
+                      <Box>
+                        <Typography variant="subtitle1">{review.user}</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {review.date}
+                        </Typography>
+                      </Box>
+                    </Box>
+                    {review.user === currentUser && (
+                      <IconButton
+                        color="error"
+                        onClick={() => handleDeleteReview(review.id)}
+                        sx={{ 
+                          '&:hover': {
+                            backgroundColor: 'rgba(211, 47, 47, 0.1)'
+                          }
+                        }}
+                      >
+                        <Delete />
+                      </IconButton>
+                    )}
+                  </Box>
+                  <Rating value={review.rating} readOnly />
+                  <Typography variant="body1" sx={{ mt: 1 }}>
+                    {review.comment}
+                  </Typography>
+                </CardContent>
+              </Card>
+            ))
           )}
-        </DialogContent>
-      </Dialog>
-      
-      <Snackbar 
-        open={snackbar.open} 
-        autoHideDuration={4000} 
-        onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} variant="filled">
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
-    </Container>
+        </Box>
+
+        {/* Yorum Yapma Dialog'u */}
+        <Dialog 
+          open={openReviewDialog} 
+          onClose={() => setOpenReviewDialog(false)}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>Yorum Yap</DialogTitle>
+          <DialogContent>
+            <Box sx={{ mt: 2, textAlign: 'center' }}>
+              <Typography variant="subtitle1" gutterBottom>
+                Puanınız
+              </Typography>
+              <Rating
+                value={newReview.rating}
+                onChange={(event, newValue) => setNewReview({ ...newReview, rating: newValue })}
+                size="large"
+                sx={{ fontSize: '2.5rem' }}
+              />
+            </Box>
+            <TextField
+              fullWidth
+              multiline
+              rows={4}
+              label="Yorumunuz"
+              value={newReview.comment}
+              onChange={(e) => setNewReview({ ...newReview, comment: e.target.value })}
+              sx={{ mt: 2 }}
+              placeholder="Otel hakkındaki deneyiminizi paylaşın..."
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOpenReviewDialog(false)}>İptal</Button>
+            <Button 
+              onClick={handleReviewSubmit} 
+              variant="contained"
+              disabled={!newReview.rating || !newReview.comment}
+            >
+              Gönder
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        <Snackbar
+          open={snackbar.open}
+          autoHideDuration={6000}
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+        >
+          <Alert
+            onClose={() => setSnackbar({ ...snackbar, open: false })}
+            severity={snackbar.severity}
+            sx={{ width: '100%' }}
+          >
+            {snackbar.message}
+          </Alert>
+        </Snackbar>
+      </Container>
+    </Box>
   );
 };
 
