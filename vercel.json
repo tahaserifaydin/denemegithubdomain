@@ -6,7 +6,7 @@
       "use": "@vercel/static-build",
       "config": {
         "distDir": "build",
-        "buildCommand": "cd frontend && npm install --legacy-peer-deps && GENERATE_SOURCEMAP=false npm run build"
+        "buildCommand": "cd frontend && npm install --legacy-peer-deps && CI=false GENERATE_SOURCEMAP=false npm run build"
       }
     }
   ],
@@ -34,6 +34,7 @@
   ],
   "env": {
     "NODE_ENV": "production",
-    "GENERATE_SOURCEMAP": "false"
+    "GENERATE_SOURCEMAP": "false",
+    "CI": "false"
   }
 } 
