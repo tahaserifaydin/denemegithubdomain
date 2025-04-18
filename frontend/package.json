@@ -7,8 +7,8 @@
   "@emotion/react": "^11.14.0",
   "@emotion/styled": "^11.14.0",
   "@mui/icons-material": "^5.17.1",
-  "@mui/lab": "^5.0.0",  // Beta sürümü yerine stabil sürüm
-  "@mui/material": "^5.17.1",  // Uyumsuz sürümleri eşitleme
+  "@mui/lab": "^5.0.0",  
+  "@mui/material": "^5.17.1",  
   "@mui/x-date-pickers": "^7.29.0",
   "axios": "^1.8.4",
   "date-fns": "^2.30.0",
