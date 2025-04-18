@@ -52,8 +52,13 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      // Simüle edilmiş API çağrısı - gerçek uygulamada backend'e istek atılacak
-      // Burada üye olmayan kullanıcı durumunu simüle ediyoruz
+      // Admin kontrolü
+      if (formData.email === 'admin@gmail.com' && formData.password === '123123') {
+        navigate('/admin');
+        return;
+      }
+
+      // Normal kullanıcı kontrolü
       if (formData.email !== 'test@test.com') {
         setOpenModal(true);
         return;

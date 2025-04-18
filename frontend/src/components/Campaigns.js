@@ -23,7 +23,7 @@ function Campaigns() {
 
   const fetchCampaigns = async () => {
     try {
-      const response = await fetch('http://localhost:5001/api/campaigns');
+      const response = await fetch('http://localhost:5002/api/campaigns');
       if (!response.ok) {
         throw new Error('Kampanyalar yüklenirken bir hata oluştu');
       }

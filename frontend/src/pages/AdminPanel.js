@@ -1,55 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Container,
-  Typography,
-  Box,
-  Grid,
-  Card,
-  CardContent,
-  CardActions,
-  Button,
-  TextField,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  IconButton,
-  Snackbar,
-  Alert,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  Tabs,
-  Tab,
-  Rating,
-} from '@mui/material';
-import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, Logout as LogoutIcon } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import '../styles/AdminPanel.css';
 
 const AdminPanel = () => {
   const navigate = useNavigate();
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [hotels, setHotels] = useState([]);
-  const [complaints, setComplaints] = useState([
-    {
-      id: 1,
-      name: 'Ahmet Yılmaz',
-      email: 'ahmet@example.com',
-      hotelName: 'Grand Luxury Hotel',
-      rating: 2,
-      comment: 'Otel temizliği yetersizdi ve personel ilgisizdi. Fiyatına göre beklentilerimi karşılamadı.',
-      createdAt: new Date().toISOString()
-    }
-  ]);
-  const [loginForm, setLoginForm] = useState({
-    email: '',
-    password: ''
-  });
-  const [loginDialogOpen, setLoginDialogOpen] = useState(true);
+  const [complaints, setComplaints] = useState([]);
   const [openDialog, setOpenDialog] = useState(false);
   const [editingHotel, setEditingHotel] = useState(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
@@ -59,6 +16,7 @@ const AdminPanel = () => {
     price: '',
     rating: '',
     image: '',
+    photos: [],
   });
   const [campaigns, setCampaigns] = useState([]);
   const [openCampaignDialog, setOpenCampaignDialog] = useState(false);
@@ -72,13 +30,15 @@ const AdminPanel = () => {
     image: ''
   });
   const [activeTab, setActiveTab] = useState(0);
+  const [selectedHotel, setSelectedHotel] = useState(null);
+  const [photoDialogOpen, setPhotoDialogOpen] = useState(false);
+  const [newPhoto, setNewPhoto] = useState('');
 
   useEffect(() => {
-    if (isLoggedIn) {
-      fetchHotels();
-      fetchComplaints();
-    }
-  }, [isLoggedIn]);
+    fetchHotels();
+    fetchComplaints();
+    fetchCampaigns();
+  }, []);
 
   const fetchHotels = async () => {
     try {
@@ -95,10 +55,14 @@ const AdminPanel = () => {
   const fetchComplaints = async () => {
     try {
       const response = await fetch('http://localhost:5002/api/complaints');
+      if (!response.ok) {
+        throw new Error('Şikayetler yüklenirken bir hata oluştu');
+      }
       const data = await response.json();
-      setComplaints(data);
+      setComplaints(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Şikayetler yüklenirken hata:', error);
+      setComplaints([]);
     }
   };
 
@@ -112,19 +76,7 @@ const AdminPanel = () => {
     }
   };
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    if (loginForm.email === 'admin@gmail.com' && loginForm.password === '123123') {
-      setIsLoggedIn(true);
-      setLoginDialogOpen(false);
-      fetchHotels();
-    } else {
-      alert('Geçersiz e-posta veya şifre!');
-    }
-  };
-
   const handleLogout = () => {
-    setIsLoggedIn(false);
     navigate('/');
   };
 
@@ -140,6 +92,7 @@ const AdminPanel = () => {
         price: '',
         rating: '',
         image: '',
+        photos: [],
       });
     }
     setOpenDialog(true);
@@ -160,30 +113,29 @@ const AdminPanel = () => {
 
   const handleSubmit = async () => {
     try {
-      if (editingHotel) {
-        // API'ye otel güncelleme isteği gönder
-        setHotels(hotels.map(hotel => 
-          hotel.id === editingHotel.id ? { ...formData, id: editingHotel.id } : hotel
-        ));
+      const url = editingHotel 
+        ? `http://localhost:5002/api/hotels/${editingHotel.id}`
+        : 'http://localhost:5002/api/hotels';
+      
+      const method = editingHotel ? 'PUT' : 'POST';
+      
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (response.ok) {
+        fetchHotels();
+        handleCloseDialog();
         setSnackbar({
           open: true,
-          message: 'Otel başarıyla güncellendi',
-          severity: 'success'
-        });
-      } else {
-        // API'ye yeni otel ekleme isteği gönder
-        const newHotel = {
-          ...formData,
-          id: Date.now() // Geçici ID
-        };
-        setHotels([...hotels, newHotel]);
-        setSnackbar({
-          open: true,
-          message: 'Otel başarıyla eklendi',
+          message: editingHotel ? 'Otel başarıyla güncellendi' : 'Otel başarıyla eklendi',
           severity: 'success'
         });
       }
-      handleCloseDialog();
     } catch (error) {
       setSnackbar({
         open: true,
@@ -195,23 +147,51 @@ const AdminPanel = () => {
 
   const handleDelete = async (id) => {
     try {
-      // API'ye otel silme isteği gönder
-      setHotels(hotels.filter(hotel => hotel.id !== id));
-      setSnackbar({
-        open: true,
-        message: 'Otel başarıyla silindi',
-        severity: 'success'
+      const response = await fetch(`http://localhost:5002/api/hotels/${id}`, {
+        method: 'DELETE',
       });
+
+      if (response.ok) {
+        fetchHotels();
+        setSnackbar({
+          open: true,
+          message: 'Otel başarıyla silindi',
+          severity: 'success'
+        });
+      }
     } catch (error) {
       setSnackbar({
         open: true,
-        message: 'Otel silinirken bir hata oluştu',
+        message: 'Silme işlemi sırasında bir hata oluştu',
         severity: 'error'
       });
     }
   };
 
-  const handleCampaignOpenDialog = (campaign = null) => {
+  const handleDeleteComplaint = async (id) => {
+    try {
+      const response = await fetch(`http://localhost:5002/api/complaints/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        fetchComplaints();
+        setSnackbar({
+          open: true,
+          message: 'Şikayet başarıyla silindi',
+          severity: 'success'
+        });
+      }
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: 'Şikayet silinirken bir hata oluştu',
+        severity: 'error'
+      });
+    }
+  };
+
+  const handleOpenCampaignDialog = (campaign = null) => {
     if (campaign) {
       setEditingCampaign(campaign);
       setCampaignFormData(campaign);
@@ -229,559 +209,451 @@ const AdminPanel = () => {
     setOpenCampaignDialog(true);
   };
 
-  const handleCampaignCloseDialog = () => {
+  const handleCloseCampaignDialog = () => {
     setOpenCampaignDialog(false);
     setEditingCampaign(null);
   };
 
-  const handleCampaignInputChange = (e) => {
-    const { name, value } = e.target;
-    setCampaignFormData({ ...campaignFormData, [name]: value });
-  };
-
   const handleCampaignSubmit = async () => {
     try {
-      if (editingCampaign) {
-        const response = await fetch(`http://localhost:5002/api/campaigns/${editingCampaign.id}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(campaignFormData),
+      const url = editingCampaign 
+        ? `http://localhost:5002/api/campaigns/${editingCampaign.id}`
+        : 'http://localhost:5002/api/campaigns';
+      
+      const method = editingCampaign ? 'PUT' : 'POST';
+      
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(campaignFormData),
+      });
+
+      if (response.ok) {
+        fetchCampaigns();
+        handleCloseCampaignDialog();
+        setSnackbar({
+          open: true,
+          message: editingCampaign ? 'Kampanya başarıyla güncellendi' : 'Kampanya başarıyla eklendi',
+          severity: 'success'
         });
-        const updatedCampaign = await response.json();
-        setCampaigns(campaigns.map(camp => 
-          camp.id === editingCampaign.id ? updatedCampaign : camp
-        ));
-      } else {
-        const response = await fetch('http://localhost:5002/api/campaigns', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(campaignFormData),
-        });
-        const newCampaign = await response.json();
-        setCampaigns([...campaigns, newCampaign]);
       }
-      handleCampaignCloseDialog();
     } catch (error) {
-      console.error('Error saving campaign:', error);
+      setSnackbar({
+        open: true,
+        message: 'Kampanya işlemi sırasında bir hata oluştu',
+        severity: 'error'
+      });
     }
   };
 
-  const handleCampaignDelete = async (id) => {
+  const handleDeleteCampaign = async (id) => {
     try {
-      await fetch(`http://localhost:5002/api/campaigns/${id}`, {
+      const response = await fetch(`http://localhost:5002/api/campaigns/${id}`, {
         method: 'DELETE',
       });
-      setCampaigns(campaigns.filter(camp => camp.id !== id));
-    } catch (error) {
-      console.error('Error deleting campaign:', error);
-    }
-  };
 
-  const handleChangePhoto = (hotel) => {
-    const newPhotoUrl = prompt('Yeni fotoğraf URL\'sini girin:', hotel.image);
-    if (newPhotoUrl) {
-      const updatedHotel = { ...hotel, image: newPhotoUrl };
-      fetch(`http://localhost:5002/api/hotels/${hotel.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updatedHotel),
-      })
-        .then(response => response.json())
-        .then(() => {
-          fetchHotels();
-          alert('Fotoğraf başarıyla güncellendi!');
-        })
-        .catch(error => {
-          console.error('Fotoğraf güncellenirken hata:', error);
-          alert('Fotoğraf güncellenirken bir hata oluştu!');
+      if (response.ok) {
+        fetchCampaigns();
+        setSnackbar({
+          open: true,
+          message: 'Kampanya başarıyla silindi',
+          severity: 'success'
         });
-    }
-  };
-
-  const handleAddPhoto = (hotel) => {
-    const newPhotoUrl = prompt('Yeni fotoğraf URL\'sini girin:');
-    if (newPhotoUrl) {
-      const updatedHotel = { ...hotel, image: newPhotoUrl };
-      fetch(`http://localhost:5002/api/hotels/${hotel.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updatedHotel),
-      })
-        .then(response => response.json())
-        .then(() => {
-          fetchHotels();
-          alert('Fotoğraf başarıyla eklendi!');
-        })
-        .catch(error => {
-          console.error('Fotoğraf eklenirken hata:', error);
-          alert('Fotoğraf eklenirken bir hata oluştu!');
-        });
-    }
-  };
-
-  const handleDeletePhoto = (hotel) => {
-    if (window.confirm('Fotoğrafı silmek istediğinizden emin misiniz?')) {
-      const updatedHotel = { ...hotel, image: '' };
-      fetch(`http://localhost:5002/api/hotels/${hotel.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updatedHotel),
-      })
-        .then(response => response.json())
-        .then(() => {
-          fetchHotels();
-          alert('Fotoğraf başarıyla silindi!');
-        })
-        .catch(error => {
-          console.error('Fotoğraf silinirken hata:', error);
-          alert('Fotoğraf silinirken bir hata oluştu!');
-        });
-    }
-  };
-
-  const handleDeleteComplaint = async (id) => {
-    if (window.confirm('Bu şikayeti silmek istediğinizden emin misiniz?')) {
-      try {
-        // API'ye silme isteği gönder
-        await fetch(`http://localhost:5002/api/complaints/${id}`, {
-          method: 'DELETE',
-        });
-        // Local state'i güncelle
-        setComplaints(complaints.filter(complaint => complaint.id !== id));
-        alert('Şikayet başarıyla silindi!');
-      } catch (error) {
-        console.error('Şikayet silinirken hata:', error);
-        alert('Şikayet silinirken bir hata oluştu!');
       }
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: 'Kampanya silinirken bir hata oluştu',
+        severity: 'error'
+      });
     }
+  };
+
+  const handleOpenPhotoDialog = (hotel) => {
+    setSelectedHotel(hotel);
+    setPhotoDialogOpen(true);
+  };
+
+  const handleClosePhotoDialog = () => {
+    setPhotoDialogOpen(false);
+    setSelectedHotel(null);
+    setNewPhoto('');
+  };
+
+  const handleAddPhoto = async () => {
+    if (!newPhoto || !selectedHotel) return;
+
+    try {
+      const updatedHotel = {
+        ...selectedHotel,
+        photos: [...(selectedHotel.photos || []), newPhoto]
+      };
+
+      const response = await fetch(`http://localhost:5002/api/hotels/${selectedHotel.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updatedHotel),
+      });
+
+      if (response.ok) {
+        fetchHotels();
+        handleClosePhotoDialog();
+        setSnackbar({
+          open: true,
+          message: 'Fotoğraf başarıyla eklendi',
+          severity: 'success'
+        });
+      }
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: 'Fotoğraf eklenirken bir hata oluştu',
+        severity: 'error'
+      });
+    }
+  };
+
+  const handleDeletePhoto = async (hotelId, photoIndex) => {
+    try {
+      const hotel = hotels.find(h => h.id === hotelId);
+      if (!hotel) return;
+
+      const updatedPhotos = [...hotel.photos];
+      updatedPhotos.splice(photoIndex, 1);
+
+      const response = await fetch(`http://localhost:5002/api/hotels/${hotelId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ ...hotel, photos: updatedPhotos }),
+      });
+
+      if (response.ok) {
+        fetchHotels();
+        setSnackbar({
+          open: true,
+          message: 'Fotoğraf başarıyla silindi',
+          severity: 'success'
+        });
+      }
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: 'Fotoğraf silinirken bir hata oluştu',
+        severity: 'error'
+      });
+    }
+  };
+
+  const handleTabChange = (newValue) => {
+    setActiveTab(newValue);
+  };
+
+  const renderStars = (rating) => {
+    const stars = [];
+    for (let i = 1; i <= 5; i++) {
+      stars.push(
+        <span key={i} className={`star ${i <= rating ? 'filled' : ''}`}>★</span>
+      );
+    }
+    return stars;
   };
 
   return (
-    <Box sx={{ minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
-      <Container maxWidth="lg" sx={{ py: 4 }}>
-        {!isLoggedIn ? (
-          <Box sx={{ 
-            display: 'flex', 
-            justifyContent: 'center', 
-            alignItems: 'center', 
-            minHeight: '80vh' 
-          }}>
-            <Button 
-              variant="contained" 
-              color="primary" 
-              onClick={() => setLoginDialogOpen(true)}
-            >
-              Admin Girişi
-            </Button>
-          </Box>
-        ) : (
-          <>
-            <Box sx={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'center', 
-              mb: 4 
-            }}>
-              <Typography variant="h4" component="h1">
-                Admin Paneli
-              </Typography>
-              <Button 
-                variant="contained" 
-                color="error" 
-                onClick={handleLogout}
-              >
-                Çıkış Yap
-              </Button>
-            </Box>
+    <div className="admin-container">
+      <div className="admin-header">
+        <h1>Admin Panel</h1>
+        <button className="logout-button" onClick={handleLogout}>
+          Çıkış Yap
+        </button>
+      </div>
 
-            <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)} sx={{ mb: 4 }}>
-              <Tab label="Oteller" />
-              <Tab label="Şikayetler" />
-            </Tabs>
-
-            {activeTab === 0 ? (
-              <Grid container spacing={3}>
-                <Grid item xs={12}>
-                  <Paper sx={{ p: 2, mb: 3 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                      <Typography variant="h6">
-                        Otel Listesi
-                      </Typography>
-                      <Button
-                        variant="contained"
-                        startIcon={<AddIcon />}
-                        onClick={() => handleOpenDialog()}
-                      >
-                        Yeni Otel Ekle
-                      </Button>
-                    </Box>
-                    <TableContainer>
-                      <Table>
-                        <TableHead>
-                          <TableRow>
-                            <TableCell>ID</TableCell>
-                            <TableCell>Otel Adı</TableCell>
-                            <TableCell>Konum</TableCell>
-                            <TableCell>Fiyat</TableCell>
-                            <TableCell>Puan</TableCell>
-                            <TableCell>Müsaitlik</TableCell>
-                            <TableCell>İşlemler</TableCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {hotels.map((hotel) => (
-                            <TableRow key={hotel.id}>
-                              <TableCell>{hotel.id}</TableCell>
-                              <TableCell>{hotel.name}</TableCell>
-                              <TableCell>{hotel.location}</TableCell>
-                              <TableCell>{hotel.price} TL</TableCell>
-                              <TableCell>{hotel.rating}</TableCell>
-                              <TableCell>
-                                <Typography color={hotel.available ? "success.main" : "error.main"}>
-                                  {hotel.available ? "Müsait" : "Dolu"}
-                                </Typography>
-                              </TableCell>
-                              <TableCell>
-                                <Button
-                                  variant="contained"
-                                  color="primary"
-                                  size="small"
-                                  onClick={() => handleOpenDialog(hotel)}
-                                  sx={{ mr: 1 }}
-                                >
-                                  Düzenle
-                                </Button>
-                                <Button
-                                  variant="contained"
-                                  color="error"
-                                  size="small"
-                                  onClick={() => handleDelete(hotel.id)}
-                                  sx={{ mr: 1 }}
-                                >
-                                  Sil
-                                </Button>
-                                <Button
-                                  variant="contained"
-                                  color="info"
-                                  size="small"
-                                  onClick={() => handleChangePhoto(hotel)}
-                                  sx={{ mr: 1 }}
-                                >
-                                  Fotoğraf Değiştir
-                                </Button>
-                                <Button
-                                  variant="contained"
-                                  color="success"
-                                  size="small"
-                                  onClick={() => handleAddPhoto(hotel)}
-                                  sx={{ mr: 1 }}
-                                >
-                                  Fotoğraf Ekle
-                                </Button>
-                                <Button
-                                  variant="contained"
-                                  color="warning"
-                                  size="small"
-                                  onClick={() => handleDeletePhoto(hotel)}
-                                  sx={{ mr: 1 }}
-                                >
-                                  Fotoğraf Sil
-                                </Button>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
-                  </Paper>
-                </Grid>
-
-                <Grid item xs={12}>
-                  <Paper sx={{ p: 2 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                      <Typography variant="h6">
-                        Kampanya Listesi
-                      </Typography>
-                      <Button
-                        variant="contained"
-                        startIcon={<AddIcon />}
-                        onClick={() => handleCampaignOpenDialog()}
-                      >
-                        Yeni Kampanya Ekle
-                      </Button>
-                    </Box>
-                    <TableContainer>
-                      <Table>
-                        <TableHead>
-                          <TableRow>
-                            <TableCell>Kampanya Adı</TableCell>
-                            <TableCell>Açıklama</TableCell>
-                            <TableCell>İndirim</TableCell>
-                            <TableCell>Başlangıç</TableCell>
-                            <TableCell>Bitiş</TableCell>
-                            <TableCell>İşlemler</TableCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {campaigns.map((campaign) => (
-                            <TableRow key={campaign.id}>
-                              <TableCell>{campaign.title}</TableCell>
-                              <TableCell>{campaign.description}</TableCell>
-                              <TableCell>%{campaign.discount}</TableCell>
-                              <TableCell>{campaign.startDate}</TableCell>
-                              <TableCell>{campaign.endDate}</TableCell>
-                              <TableCell>
-                                <IconButton color="primary" onClick={() => handleCampaignOpenDialog(campaign)}>
-                                  <EditIcon />
-                                </IconButton>
-                                <IconButton color="error" onClick={() => handleCampaignDelete(campaign.id)}>
-                                  <DeleteIcon />
-                                </IconButton>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
-                  </Paper>
-                </Grid>
-              </Grid>
-            ) : (
-              <Paper sx={{ p: 2 }}>
-                <Typography variant="h6" gutterBottom>
-                  Şikayetler ve Yorumlar
-                </Typography>
-                <TableContainer>
-                  <Table>
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Ad Soyad</TableCell>
-                        <TableCell>E-posta</TableCell>
-                        <TableCell>Otel</TableCell>
-                        <TableCell>Değerlendirme</TableCell>
-                        <TableCell>Yorum</TableCell>
-                        <TableCell>Tarih</TableCell>
-                        <TableCell>İşlemler</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {complaints.map((complaint) => (
-                        <TableRow key={complaint.id}>
-                          <TableCell>{complaint.name}</TableCell>
-                          <TableCell>{complaint.email}</TableCell>
-                          <TableCell>{complaint.hotelName}</TableCell>
-                          <TableCell>
-                            <Rating value={complaint.rating} readOnly />
-                          </TableCell>
-                          <TableCell>{complaint.comment}</TableCell>
-                          <TableCell>{new Date(complaint.createdAt).toLocaleDateString()}</TableCell>
-                          <TableCell>
-                            <Button
-                              variant="contained"
-                              color="error"
-                              size="small"
-                              onClick={() => handleDeleteComplaint(complaint.id)}
-                            >
-                              Sil
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              </Paper>
-            )}
-
-            {/* Otel Ekleme/Düzenleme Dialog'u */}
-            <Dialog
-              open={openDialog}
-              onClose={handleCloseDialog}
-              maxWidth="sm"
-              fullWidth
-            >
-              <DialogTitle>
-                {editingHotel ? 'Otel Düzenle' : 'Yeni Otel Ekle'}
-              </DialogTitle>
-              <DialogContent>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
-                  <TextField
-                    fullWidth
-                    label="Otel Adı"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleInputChange}
-                  />
-                  <TextField
-                    fullWidth
-                    label="Konum"
-                    name="location"
-                    value={formData.location}
-                    onChange={handleInputChange}
-                  />
-                  <TextField
-                    fullWidth
-                    type="number"
-                    label="Fiyat"
-                    name="price"
-                    value={formData.price}
-                    onChange={handleInputChange}
-                  />
-                  <TextField
-                    fullWidth
-                    type="number"
-                    label="Puan"
-                    name="rating"
-                    value={formData.rating}
-                    onChange={handleInputChange}
-                  />
-                  <TextField
-                    fullWidth
-                    label="Görsel URL"
-                    name="image"
-                    value={formData.image}
-                    onChange={handleInputChange}
-                  />
-                </Box>
-              </DialogContent>
-              <DialogActions>
-                <Button onClick={handleCloseDialog}>İptal</Button>
-                <Button onClick={handleSubmit} variant="contained">
-                  {editingHotel ? 'Güncelle' : 'Ekle'}
-                </Button>
-              </DialogActions>
-            </Dialog>
-
-            {/* Kampanya Ekleme/Düzenleme Dialog'u */}
-            <Dialog
-              open={openCampaignDialog}
-              onClose={handleCampaignCloseDialog}
-              maxWidth="sm"
-              fullWidth
-            >
-              <DialogTitle>
-                {editingCampaign ? 'Kampanya Düzenle' : 'Yeni Kampanya Ekle'}
-              </DialogTitle>
-              <DialogContent>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
-                  <TextField
-                    fullWidth
-                    label="Kampanya Adı"
-                    name="title"
-                    value={campaignFormData.title}
-                    onChange={handleCampaignInputChange}
-                  />
-                  <TextField
-                    fullWidth
-                    multiline
-                    rows={3}
-                    label="Açıklama"
-                    name="description"
-                    value={campaignFormData.description}
-                    onChange={handleCampaignInputChange}
-                  />
-                  <TextField
-                    fullWidth
-                    type="number"
-                    label="İndirim Oranı (%)"
-                    name="discount"
-                    value={campaignFormData.discount}
-                    onChange={handleCampaignInputChange}
-                  />
-                  <TextField
-                    fullWidth
-                    type="date"
-                    label="Başlangıç Tarihi"
-                    name="startDate"
-                    value={campaignFormData.startDate}
-                    onChange={handleCampaignInputChange}
-                    InputLabelProps={{ shrink: true }}
-                  />
-                  <TextField
-                    fullWidth
-                    type="date"
-                    label="Bitiş Tarihi"
-                    name="endDate"
-                    value={campaignFormData.endDate}
-                    onChange={handleCampaignInputChange}
-                    InputLabelProps={{ shrink: true }}
-                  />
-                  <TextField
-                    fullWidth
-                    label="Resim URL"
-                    name="image"
-                    value={campaignFormData.image}
-                    onChange={handleCampaignInputChange}
-                  />
-                </Box>
-              </DialogContent>
-              <DialogActions>
-                <Button onClick={handleCampaignCloseDialog}>İptal</Button>
-                <Button onClick={handleCampaignSubmit} variant="contained">
-                  {editingCampaign ? 'Güncelle' : 'Ekle'}
-                </Button>
-              </DialogActions>
-            </Dialog>
-          </>
-        )}
-      </Container>
-
-      <Dialog open={loginDialogOpen} onClose={() => setLoginDialogOpen(false)}>
-        <DialogTitle>Admin Girişi</DialogTitle>
-        <DialogContent>
-          <Box component="form" onSubmit={handleLogin} sx={{ mt: 2 }}>
-            <TextField
-              fullWidth
-              label="E-posta"
-              type="email"
-              value={loginForm.email}
-              onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
-              sx={{ mb: 2 }}
-            />
-            <TextField
-              fullWidth
-              label="Şifre"
-              type="password"
-              value={loginForm.password}
-              onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-              sx={{ mb: 2 }}
-            />
-            <Button
-              fullWidth
-              variant="contained"
-              color="primary"
-              type="submit"
-            >
-              Giriş Yap
-            </Button>
-          </Box>
-        </DialogContent>
-      </Dialog>
-
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-      >
-        <Alert
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          severity={snackbar.severity}
-          sx={{ width: '100%' }}
+      <div className="tabs">
+        <button 
+          className={`tab-button ${activeTab === 0 ? 'active' : ''}`}
+          onClick={() => handleTabChange(0)}
         >
+          Oteller
+        </button>
+        <button 
+          className={`tab-button ${activeTab === 1 ? 'active' : ''}`}
+          onClick={() => handleTabChange(1)}
+        >
+          Şikayetler
+        </button>
+        <button 
+          className={`tab-button ${activeTab === 2 ? 'active' : ''}`}
+          onClick={() => handleTabChange(2)}
+        >
+          Kampanyalar
+        </button>
+      </div>
+
+      {/* Oteller Sekmesi */}
+      {activeTab === 0 && (
+        <div className="hotels-section">
+          <button className="add-button" onClick={() => handleOpenDialog()}>
+            Yeni Otel Ekle
+          </button>
+
+          <div className="hotels-grid">
+            {hotels.map((hotel) => (
+              <div className="hotel-card" key={hotel.id}>
+                <div className="hotel-content">
+                  <h3>{hotel.name}</h3>
+                  <p className="location">{hotel.location}</p>
+                  <p className="price">Fiyat: {hotel.price} TL</p>
+                  <div className="rating">{renderStars(hotel.rating)}</div>
+                  
+                  {hotel.photos && hotel.photos.length > 0 && (
+                    <div className="photos-grid">
+                      {hotel.photos.map((photo, index) => (
+                        <div className="photo-item" key={index}>
+                          <img src={photo} alt={`${hotel.name} - Fotoğraf ${index + 1}`} />
+                          <button 
+                            className="delete-photo-button"
+                            onClick={() => handleDeletePhoto(hotel.id, index)}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="hotel-actions">
+                  <button onClick={() => handleOpenDialog(hotel)}>Düzenle</button>
+                  <button onClick={() => handleOpenPhotoDialog(hotel)}>Fotoğraf Ekle</button>
+                  <button className="delete-button" onClick={() => handleDelete(hotel.id)}>Sil</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Şikayetler Sekmesi */}
+      {activeTab === 1 && (
+        <div className="complaints-section">
+          <table className="complaints-table">
+            <thead>
+              <tr>
+                <th>İsim</th>
+                <th>E-posta</th>
+                <th>Otel</th>
+                <th>Puan</th>
+                <th>Yorum</th>
+                <th>Tarih</th>
+                <th>İşlemler</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Array.isArray(complaints) && complaints.length > 0 ? (
+                complaints.map((complaint) => (
+                  <tr key={complaint._id}>
+                    <td>{complaint.name}</td>
+                    <td>{complaint.email}</td>
+                    <td>{complaint.hotelName}</td>
+                    <td>
+                      <div className="rating">{renderStars(complaint.rating)}</div>
+                    </td>
+                    <td>{complaint.comment}</td>
+                    <td>{new Date(complaint.createdAt).toLocaleDateString()}</td>
+                    <td>
+                      <button 
+                        className="delete-button"
+                        onClick={() => handleDeleteComplaint(complaint._id)}
+                      >
+                        Sil
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="7" style={{ textAlign: 'center' }}>
+                    Henüz şikayet bulunmuyor
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Kampanyalar Sekmesi */}
+      {activeTab === 2 && (
+        <div className="campaigns-section">
+          <button className="add-button" onClick={() => handleOpenCampaignDialog()}>
+            Yeni Kampanya Ekle
+          </button>
+
+          <div className="campaigns-grid">
+            {campaigns.map((campaign) => (
+              <div className="campaign-card" key={campaign.id}>
+                <div className="campaign-content">
+                  <h3>{campaign.title}</h3>
+                  <p className="description">{campaign.description}</p>
+                  <p className="discount">İndirim: %{campaign.discount}</p>
+                  <p className="date">
+                    Başlangıç: {new Date(campaign.startDate).toLocaleDateString()}
+                  </p>
+                  <p className="date">
+                    Bitiş: {new Date(campaign.endDate).toLocaleDateString()}
+                  </p>
+                </div>
+                <div className="campaign-actions">
+                  <button onClick={() => handleOpenCampaignDialog(campaign)}>Düzenle</button>
+                  <button className="delete-button" onClick={() => handleDeleteCampaign(campaign.id)}>Sil</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Otel Ekleme/Düzenleme Dialog */}
+      {openDialog && (
+        <div className="dialog-overlay">
+          <div className="dialog">
+            <h2>{editingHotel ? 'Otel Düzenle' : 'Yeni Otel Ekle'}</h2>
+            <div className="dialog-content">
+              <input
+                type="text"
+                name="name"
+                placeholder="Otel Adı"
+                value={formData.name}
+                onChange={handleInputChange}
+              />
+              <input
+                type="text"
+                name="location"
+                placeholder="Konum"
+                value={formData.location}
+                onChange={handleInputChange}
+              />
+              <input
+                type="number"
+                name="price"
+                placeholder="Fiyat"
+                value={formData.price}
+                onChange={handleInputChange}
+              />
+              <input
+                type="number"
+                name="rating"
+                placeholder="Puan"
+                value={formData.rating}
+                onChange={handleInputChange}
+              />
+              <input
+                type="text"
+                name="image"
+                placeholder="Ana Fotoğraf URL"
+                value={formData.image}
+                onChange={handleInputChange}
+              />
+            </div>
+            <div className="dialog-actions">
+              <button onClick={handleCloseDialog}>İptal</button>
+              <button onClick={handleSubmit}>
+                {editingHotel ? 'Güncelle' : 'Ekle'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Kampanya Ekleme/Düzenleme Dialog */}
+      {openCampaignDialog && (
+        <div className="dialog-overlay">
+          <div className="dialog">
+            <h2>{editingCampaign ? 'Kampanya Düzenle' : 'Yeni Kampanya Ekle'}</h2>
+            <div className="dialog-content">
+              <input
+                type="text"
+                name="title"
+                placeholder="Kampanya Başlığı"
+                value={campaignFormData.title}
+                onChange={(e) => setCampaignFormData({ ...campaignFormData, title: e.target.value })}
+              />
+              <textarea
+                name="description"
+                placeholder="Açıklama"
+                value={campaignFormData.description}
+                onChange={(e) => setCampaignFormData({ ...campaignFormData, description: e.target.value })}
+              />
+              <input
+                type="number"
+                name="discount"
+                placeholder="İndirim Oranı (%)"
+                value={campaignFormData.discount}
+                onChange={(e) => setCampaignFormData({ ...campaignFormData, discount: e.target.value })}
+              />
+              <input
+                type="date"
+                name="startDate"
+                value={campaignFormData.startDate}
+                onChange={(e) => setCampaignFormData({ ...campaignFormData, startDate: e.target.value })}
+              />
+              <input
+                type="date"
+                name="endDate"
+                value={campaignFormData.endDate}
+                onChange={(e) => setCampaignFormData({ ...campaignFormData, endDate: e.target.value })}
+              />
+              <input
+                type="text"
+                name="image"
+                placeholder="Kampanya Görseli URL"
+                value={campaignFormData.image}
+                onChange={(e) => setCampaignFormData({ ...campaignFormData, image: e.target.value })}
+              />
+            </div>
+            <div className="dialog-actions">
+              <button onClick={handleCloseCampaignDialog}>İptal</button>
+              <button onClick={handleCampaignSubmit}>
+                {editingCampaign ? 'Güncelle' : 'Ekle'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Fotoğraf Ekleme Dialog */}
+      {photoDialogOpen && (
+        <div className="dialog-overlay">
+          <div className="dialog">
+            <h2>Fotoğraf Ekle</h2>
+            <div className="dialog-content">
+              <input
+                type="text"
+                placeholder="Fotoğraf URL"
+                value={newPhoto}
+                onChange={(e) => setNewPhoto(e.target.value)}
+              />
+            </div>
+            <div className="dialog-actions">
+              <button onClick={handleClosePhotoDialog}>İptal</button>
+              <button onClick={handleAddPhoto}>Ekle</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Snackbar */}
+      {snackbar.open && (
+        <div className={`snackbar ${snackbar.severity}`}>
           {snackbar.message}
-        </Alert>
-      </Snackbar>
-    </Box>
+          <button onClick={() => setSnackbar({ ...snackbar, open: false })}>×</button>
+        </div>
+      )}
+    </div>
   );
 };
 

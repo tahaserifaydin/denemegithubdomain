@@ -14,6 +14,7 @@ const reviewsRoutes = require('./routes/reviews');
 const favoritesRoutes = require('./routes/favorites');
 const campaignsRoutes = require('./routes/campaigns');
 const feedbackRoutes = require('./routes/feedback');
+const complaintsRoutes = require('./routes/complaints');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/hotels', hotelsRouter);
@@ -22,6 +23,7 @@ app.use('/api/reviews', reviewsRoutes);
 app.use('/api/favorites', favoritesRoutes);
 app.use('/api/campaigns', campaignsRoutes);
 app.use('/api/feedback', feedbackRoutes);
+app.use('/api/complaints', complaintsRoutes);
 
 // Rezervasyon işlemleri için endpoint
 app.post('/api/bookings', (req, res) => {

@@ -23,7 +23,7 @@ function Feedback() {
     e.preventDefault();
     
     try {
-      const response = await fetch('http://localhost:5001/api/feedback', {
+      const response = await fetch('http://localhost:5002/api/feedback', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
