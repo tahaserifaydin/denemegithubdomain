@@ -1,83 +1,94 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+import { FaUser, FaHotel, FaHeart, FaBars, FaTimes } from 'react-icons/fa';
 import './Navbar.css';
 
-function Navbar() {
+const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const isAuthenticated = localStorage.getItem('token');
+  const isAdmin = localStorage.getItem('isAdmin') === 'true';
 
   const handleLogout = () => {
-    logout();
+    localStorage.removeItem('token');
+    localStorage.removeItem('isAdmin');
     navigate('/');
+  };
+
+  const toggleMenu = () => {
+    setIsMenuOpen(!isMenuOpen);
   };
 
   return (
     <nav className="navbar">
       <div className="navbar-container">
         <Link to="/" className="navbar-logo">
-          Tatilim
+          TATİLİM
         </Link>
 
-        <div className="menu-icon" onClick={() => setIsMenuOpen(!isMenuOpen)}>
-          <span className={isMenuOpen ? 'fas fa-times' : 'fas fa-bars'} />
-        </div>
+        <button className="menu-icon" onClick={toggleMenu}>
+          {isMenuOpen ? <FaTimes /> : <FaBars />}
+        </button>
 
-        <ul className={isMenuOpen ? 'nav-menu active' : 'nav-menu'}>
+        <ul className={`nav-menu ${isMenuOpen ? 'active' : ''}`}>
           <li className="nav-item">
-            <Link to="/" className="nav-links">
+            <Link to="/" className="nav-link">
               Ana Sayfa
             </Link>
           </li>
           <li className="nav-item">
-            <Link to="/search" className="nav-links">
+            <Link to="/hotels" className="nav-link">
+              <FaHotel className="nav-icon" />
               Oteller
             </Link>
           </li>
-          {user ? (
+          {isAuthenticated && (
             <>
               <li className="nav-item">
-                <Link to="/favorites" className="nav-links">
-                  Favorilerim
+                <Link to="/favorites" className="nav-link">
+                  <FaHeart className="nav-icon" />
+                  Favoriler
                 </Link>
               </li>
               <li className="nav-item">
-                <Link to="/profile" className="nav-links">
-                  Profilim
+                <Link to="/profile" className="nav-link">
+                  <FaUser className="nav-icon" />
+                  Profil
                 </Link>
-              </li>
-              {user.role === 'admin' && (
-                <li className="nav-item">
-                  <Link to="/admin" className="nav-links">
-                    Admin Panel
-                  </Link>
-                </li>
-              )}
-              <li className="nav-item">
-                <button className="nav-links logout-btn" onClick={handleLogout}>
-                  Çıkış Yap
-                </button>
               </li>
             </>
-          ) : (
+          )}
+          {isAdmin && (
+            <li className="nav-item">
+              <Link to="/admin" className="nav-link">
+                Admin Panel
+              </Link>
+            </li>
+          )}
+          {!isAuthenticated ? (
             <>
               <li className="nav-item">
-                <Link to="/login" className="nav-links">
+                <Link to="/login" className="nav-link login-btn">
                   Giriş Yap
                 </Link>
               </li>
               <li className="nav-item">
-                <Link to="/register" className="nav-links">
+                <Link to="/register" className="nav-link register-btn">
                   Kayıt Ol
                 </Link>
               </li>
             </>
+          ) : (
+            <li className="nav-item">
+              <button onClick={handleLogout} className="nav-link logout-btn">
+                Çıkış Yap
+              </button>
+            </li>
           )}
         </ul>
       </div>
     </nav>
   );
-}
+};
 
 export default Navbar;

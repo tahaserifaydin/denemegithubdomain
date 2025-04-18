@@ -1,317 +1,209 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Container,
-  Grid,
-  Paper,
-  Typography,
-  Box,
-  Tab,
-  Tabs,
-  Card,
-  CardContent,
-  Button,
-  Rating,
-  TextField,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Alert,
-} from '@mui/material';
-import {
-  Person,
-  History,
-  Comment,
-  Star,
-} from '@mui/icons-material';
-
-const TabPanel = (props) => {
-  const { children, value, index, ...other } = props;
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      {...other}
-    >
-      {value === index && (
-        <Box sx={{ p: 3 }}>
-          {children}
-        </Box>
-      )}
-    </div>
-  );
-};
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { FaUser, FaEnvelope, FaPhone, FaEdit, FaSave, FaTimes } from 'react-icons/fa';
+import '../styles/Profile.css';
 
 const Profile = () => {
-  const [tabValue, setTabValue] = useState(0);
+  const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [bookings, setBookings] = useState([]);
-  const [reviews, setReviews] = useState([]);
-  const [reviewDialog, setReviewDialog] = useState({
-    open: false,
-    booking: null,
-    rating: 0,
-    comment: '',
-  });
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedUser, setEditedUser] = useState(null);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
   useEffect(() => {
     fetchUserData();
     fetchBookings();
-    fetchReviews();
   }, []);
 
   const fetchUserData = async () => {
     try {
-      // TODO: Implement actual API call
-      const response = await fetch('/api/user/profile', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setUser(data);
-      }
-    } catch (err) {
+      const userId = localStorage.getItem('userId');
+      const response = await axios.get(`http://localhost:5002/api/users/${userId}`);
+      setUser(response.data);
+      setEditedUser(response.data);
+    } catch (error) {
+      console.error('Error fetching user data:', error);
       setError('Kullanıcı bilgileri yüklenirken bir hata oluştu.');
     }
   };
 
   const fetchBookings = async () => {
     try {
-      // TODO: Implement actual API call
-      const response = await fetch('/api/user/bookings', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setBookings(data);
-      }
-    } catch (err) {
+      const userId = localStorage.getItem('userId');
+      const response = await axios.get(`http://localhost:5002/api/bookings/user/${userId}`);
+      setBookings(response.data);
+    } catch (error) {
+      console.error('Error fetching bookings:', error);
       setError('Rezervasyonlar yüklenirken bir hata oluştu.');
     }
   };
 
-  const fetchReviews = async () => {
+  const handleEditToggle = () => {
+    setIsEditing(!isEditing);
+    setEditedUser(user);
+    setError('');
+    setSuccess('');
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setEditedUser(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     try {
-      // TODO: Implement actual API call
-      const response = await fetch('/api/user/reviews', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setReviews(data);
-      }
-    } catch (err) {
-      setError('Değerlendirmeler yüklenirken bir hata oluştu.');
+      const userId = localStorage.getItem('userId');
+      await axios.put(`http://localhost:5002/api/users/${userId}`, editedUser);
+      setUser(editedUser);
+      setIsEditing(false);
+      setSuccess('Profil bilgileriniz başarıyla güncellendi.');
+    } catch (error) {
+      console.error('Error updating user:', error);
+      setError('Profil güncellenirken bir hata oluştu.');
     }
   };
 
-  const handleTabChange = (event, newValue) => {
-    setTabValue(newValue);
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('userId');
+    navigate('/login');
   };
 
-  const handleReviewDialogOpen = (booking) => {
-    setReviewDialog({
-      open: true,
-      booking,
-      rating: 0,
-      comment: '',
-    });
-  };
-
-  const handleReviewDialogClose = () => {
-    setReviewDialog({
-      open: false,
-      booking: null,
-      rating: 0,
-      comment: '',
-    });
-  };
-
-  const handleReviewSubmit = async () => {
-    try {
-      // TODO: Implement actual API call
-      const response = await fetch('/api/reviews', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-        body: JSON.stringify({
-          hotelId: reviewDialog.booking.hotelId,
-          rating: reviewDialog.rating,
-          comment: reviewDialog.comment,
-        }),
-      });
-
-      if (response.ok) {
-        fetchReviews();
-        handleReviewDialogClose();
-      }
-    } catch (err) {
-      setError('Değerlendirme gönderilirken bir hata oluştu.');
-    }
-  };
-
-  if (error) {
-    return (
-      <Container sx={{ py: 4 }}>
-        <Alert severity="error">{error}</Alert>
-      </Container>
-    );
+  if (!user) {
+    return <div className="loading">Yükleniyor...</div>;
   }
 
   return (
-    <Container sx={{ py: 4 }}>
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 3, textAlign: 'center' }}>
-            <Person sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />
-            <Typography variant="h5" gutterBottom>
-              {user?.username}
-            </Typography>
-            <Typography color="text.secondary" gutterBottom>
-              {user?.email}
-            </Typography>
-            <Button variant="outlined" fullWidth sx={{ mt: 2 }}>
-              Profili Düzenle
-            </Button>
-          </Paper>
-        </Grid>
+    <div className="profile-container">
+      <div className="profile-header">
+        <h1>Profilim</h1>
+        <button onClick={handleLogout} className="logout-btn">
+          Çıkış Yap
+        </button>
+      </div>
 
-        <Grid item xs={12} md={8}>
-          <Paper>
-            <Tabs
-              value={tabValue}
-              onChange={handleTabChange}
-              variant="fullWidth"
-            >
-              <Tab icon={<History />} label="Rezervasyonlar" />
-              <Tab icon={<Comment />} label="Değerlendirmeler" />
-            </Tabs>
+      <div className="profile-content">
+        <div className="profile-info">
+          <h2>Kişisel Bilgiler</h2>
+          
+          {success && <div className="success-message">{success}</div>}
+          {error && <div className="error-message">{error}</div>}
 
-            <TabPanel value={tabValue} index={0}>
-              <Grid container spacing={2}>
-                {bookings.map((booking) => (
-                  <Grid item xs={12} key={booking.id}>
-                    <Card>
-                      <CardContent>
-                        <Grid container spacing={2}>
-                          <Grid item xs={12} sm={8}>
-                            <Typography variant="h6">
-                              {booking.hotelName}
-                            </Typography>
-                            <Typography color="text.secondary" gutterBottom>
-                              {new Date(booking.checkIn).toLocaleDateString()} - {new Date(booking.checkOut).toLocaleDateString()}
-                            </Typography>
-                            <Typography variant="body2">
-                              Oda Tipi: {booking.roomType}
-                            </Typography>
-                            <Typography variant="body2">
-                              Misafir Sayısı: {booking.guests}
-                            </Typography>
-                            <Typography variant="body2" color="primary">
-                              Toplam: ₺{booking.totalPrice}
-                            </Typography>
-                          </Grid>
-                          <Grid item xs={12} sm={4} sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                            {booking.status === 'completed' && !booking.hasReview && (
-                              <Button
-                                variant="contained"
-                                startIcon={<Star />}
-                                onClick={() => handleReviewDialogOpen(booking)}
-                              >
-                                Değerlendir
-                              </Button>
-                            )}
-                          </Grid>
-                        </Grid>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                ))}
-              </Grid>
-            </TabPanel>
+          <form onSubmit={handleSubmit} className="profile-form">
+            <div className="form-group">
+              <label>
+                <FaUser /> Ad Soyad
+              </label>
+              {isEditing ? (
+                <input
+                  type="text"
+                  name="name"
+                  value={editedUser.name}
+                  onChange={handleInputChange}
+                  required
+                />
+              ) : (
+                <p>{user.name}</p>
+              )}
+            </div>
 
-            <TabPanel value={tabValue} index={1}>
-              <Grid container spacing={2}>
-                {reviews.map((review) => (
-                  <Grid item xs={12} key={review.id}>
-                    <Card>
-                      <CardContent>
-                        <Typography variant="h6" gutterBottom>
-                          {review.hotelName}
-                        </Typography>
-                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                          <Rating value={review.rating} readOnly />
-                          <Typography variant="body2" sx={{ ml: 1 }}>
-                            {new Date(review.date).toLocaleDateString()}
-                          </Typography>
-                        </Box>
-                        <Typography variant="body1">
-                          {review.comment}
-                        </Typography>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                ))}
-              </Grid>
-            </TabPanel>
-          </Paper>
-        </Grid>
-      </Grid>
+            <div className="form-group">
+              <label>
+                <FaEnvelope /> E-posta
+              </label>
+              {isEditing ? (
+                <input
+                  type="email"
+                  name="email"
+                  value={editedUser.email}
+                  onChange={handleInputChange}
+                  required
+                />
+              ) : (
+                <p>{user.email}</p>
+              )}
+            </div>
 
-      {/* Review Dialog */}
-      <Dialog open={reviewDialog.open} onClose={handleReviewDialogClose}>
-        <DialogTitle>Değerlendirme Yap</DialogTitle>
-        <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
-            <Typography variant="subtitle1">
-              {reviewDialog.booking?.hotelName}
-            </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <Rating
-                value={reviewDialog.rating}
-                onChange={(event, newValue) => {
-                  setReviewDialog(prev => ({
-                    ...prev,
-                    rating: newValue
-                  }));
-                }}
-              />
-            </Box>
-            <TextField
-              multiline
-              rows={4}
-              label="Yorumunuz"
-              value={reviewDialog.comment}
-              onChange={(e) => {
-                setReviewDialog(prev => ({
-                  ...prev,
-                  comment: e.target.value
-                }));
-              }}
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleReviewDialogClose}>İptal</Button>
-          <Button
-            onClick={handleReviewSubmit}
-            variant="contained"
-            disabled={!reviewDialog.rating || !reviewDialog.comment}
-          >
-            Gönder
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Container>
+            <div className="form-group">
+              <label>
+                <FaPhone /> Telefon
+              </label>
+              {isEditing ? (
+                <input
+                  type="tel"
+                  name="phone"
+                  value={editedUser.phone}
+                  onChange={handleInputChange}
+                  required
+                />
+              ) : (
+                <p>{user.phone}</p>
+              )}
+            </div>
+
+            <div className="form-actions">
+              {isEditing ? (
+                <>
+                  <button type="submit" className="save-btn">
+                    <FaSave /> Kaydet
+                  </button>
+                  <button type="button" onClick={handleEditToggle} className="cancel-btn">
+                    <FaTimes /> İptal
+                  </button>
+                </>
+              ) : (
+                <button type="button" onClick={handleEditToggle} className="edit-btn">
+                  <FaEdit /> Düzenle
+                </button>
+              )}
+            </div>
+          </form>
+        </div>
+
+        <div className="bookings-section">
+          <h2>Rezervasyonlarım</h2>
+          {bookings.length === 0 ? (
+            <p className="no-bookings">Henüz bir rezervasyonunuz bulunmamaktadır.</p>
+          ) : (
+            <div className="bookings-list">
+              {bookings.map((booking) => (
+                <div key={booking._id} className="booking-card">
+                  <h3>{booking.hotel.name}</h3>
+                  <div className="booking-details">
+                    <p>
+                      <strong>Giriş:</strong>{' '}
+                      {new Date(booking.checkIn).toLocaleDateString('tr-TR')}
+                    </p>
+                    <p>
+                      <strong>Çıkış:</strong>{' '}
+                      {new Date(booking.checkOut).toLocaleDateString('tr-TR')}
+                    </p>
+                    <p>
+                      <strong>Misafir Sayısı:</strong> {booking.guests}
+                    </p>
+                    <p>
+                      <strong>Toplam Tutar:</strong> {booking.totalPrice}₺
+                    </p>
+                    <p className={`booking-status status-${booking.status.toLowerCase()}`}>
+                      {booking.status === 'CONFIRMED' ? 'Onaylandı' :
+                       booking.status === 'PENDING' ? 'Beklemede' :
+                       booking.status === 'CANCELLED' ? 'İptal Edildi' : 'Bilinmiyor'}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 };
 

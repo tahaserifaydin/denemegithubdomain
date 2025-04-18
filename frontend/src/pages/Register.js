@@ -1,29 +1,7 @@
 import React, { useState } from 'react';
-import { Link as RouterLink, useNavigate } from 'react-router-dom';
-import {
-  Container,
-  Box,
-  Paper,
-  Typography,
-  TextField,
-  Button,
-  Link,
-  Alert,
-  Grid,
-  IconButton,
-  Divider,
-  Checkbox,
-  FormControlLabel,
-} from '@mui/material';
-import { 
-  PersonAdd,
-  Google as GoogleIcon, 
-  Facebook as FacebookIcon,
-  Visibility, 
-  VisibilityOff 
-} from '@mui/icons-material';
-import '../styles/AuthStyles.css';
-import logo from '../assets/logo.svg';
+import { useNavigate, Link } from 'react-router-dom';
+import { FaUser, FaEnvelope, FaLock, FaEye, FaEyeSlash, FaGoogle, FaFacebook } from 'react-icons/fa';
+import '../styles/Auth.css';
 
 const Register = () => {
   const navigate = useNavigate();
@@ -31,218 +9,178 @@ const Register = () => {
     username: '',
     email: '',
     password: '',
-    confirmPassword: '',
+    confirmPassword: ''
   });
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [agreeTerms, setAgreeTerms] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   const handleChange = (e) => {
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value,
+      [e.target.name]: e.target.value
     });
-  };
-
-  const handleClickShowPassword = () => {
-    setShowPassword(!showPassword);
-  };
-
-  const handleClickShowConfirmPassword = () => {
-    setShowConfirmPassword(!showConfirmPassword);
-  };
-
-  const handleAgreeTerms = (e) => {
-    setAgreeTerms(e.target.checked);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
 
     if (formData.password !== formData.confirmPassword) {
-      setError('Şifreler eşleşmiyor');
+      setError('Passwords do not match');
       return;
     }
 
-    if (!agreeTerms) {
-      setError('Devam etmek için kullanım koşullarını kabul etmelisiniz');
+    if (!termsAccepted) {
+      setError('Please accept the terms and conditions');
       return;
     }
 
     try {
-      // TODO: Implement actual API call for registration
-      const response = await fetch('/api/auth/register', {
+      const response = await fetch('http://localhost:5002/api/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          username: formData.username,
+          email: formData.email,
+          password: formData.password
+        }),
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        // Store token in localStorage
-        localStorage.setItem('token', data.token);
-        navigate('/');
-      } else {
-        setError('Kayıt başarısız. Lütfen bilgilerinizi kontrol edin.');
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Registration failed');
       }
+
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      navigate('/');
     } catch (err) {
-      setError('Bir hata oluştu. Lütfen daha sonra tekrar deneyin.');
+      setError(err.message);
     }
   };
 
   return (
     <div className="auth-container">
-      <Paper elevation={0} className="auth-card">
-        <Box className="auth-header">
-          <Typography component="h1" variant="h4" className="auth-title">
-            Üye Ol
-          </Typography>
-          <Typography component="h2" variant="h5" className="auth-subtitle">
-            Tatilim'e Hoş Geldiniz
-          </Typography>
-        </Box>
+      <div className="auth-card">
+        <h2>Create Account</h2>
+        {error && <div className="error-message">{error}</div>}
+        
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label htmlFor="username">Username</label>
+            <div className="input-with-icon">
+              <FaUser className="input-icon" />
+              <input
+                type="text"
+                id="username"
+                name="username"
+                value={formData.username}
+                onChange={handleChange}
+                required
+                placeholder="Enter your username"
+              />
+            </div>
+          </div>
 
-        <Box className="auth-form">
-          {error && (
-            <Alert severity="error" className="auth-error">
-              {error}
-            </Alert>
-          )}
+          <div className="form-group">
+            <label htmlFor="email">Email</label>
+            <div className="input-with-icon">
+              <FaEnvelope className="input-icon" />
+              <input
+                type="email"
+                id="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                required
+                placeholder="Enter your email"
+              />
+            </div>
+          </div>
 
-          <form onSubmit={handleSubmit}>
-            <TextField
-              className="auth-input"
-              required
-              fullWidth
-              id="username"
-              label="Kullanıcı Adı"
-              name="username"
-              autoComplete="username"
-              value={formData.username}
-              onChange={handleChange}
-              variant="outlined"
-            />
-            <TextField
-              className="auth-input"
-              required
-              fullWidth
-              id="email"
-              label="E-posta Adresi"
-              name="email"
-              autoComplete="email"
-              value={formData.email}
-              onChange={handleChange}
-              variant="outlined"
-            />
-            <TextField
-              className="auth-input"
-              required
-              fullWidth
-              name="password"
-              label="Şifre"
-              type={showPassword ? 'text' : 'password'}
-              id="password"
-              autoComplete="new-password"
-              value={formData.password}
-              onChange={handleChange}
-              variant="outlined"
-              InputProps={{
-                endAdornment: (
-                  <IconButton
-                    aria-label="toggle password visibility"
-                    onClick={handleClickShowPassword}
-                    edge="end"
-                  >
-                    {showPassword ? <VisibilityOff /> : <Visibility />}
-                  </IconButton>
-                ),
-              }}
-            />
-            <TextField
-              className="auth-input"
-              required
-              fullWidth
-              name="confirmPassword"
-              label="Şifre Tekrar"
-              type={showConfirmPassword ? 'text' : 'password'}
-              id="confirmPassword"
-              autoComplete="new-password"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              variant="outlined"
-              InputProps={{
-                endAdornment: (
-                  <IconButton
-                    aria-label="toggle password visibility"
-                    onClick={handleClickShowConfirmPassword}
-                    edge="end"
-                  >
-                    {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
-                  </IconButton>
-                ),
-              }}
-            />
-            
-            <FormControlLabel
-              control={
-                <Checkbox 
-                  checked={agreeTerms} 
-                  onChange={handleAgreeTerms} 
-                  color="primary" 
-                />
-              }
-              label={
-                <Typography variant="body2">
-                  <span>Kullanım koşullarını ve </span>
-                  <Link component={RouterLink} to="/privacy" className="auth-link" style={{ display: 'inline' }}>
-                    gizlilik politikasını
-                  </Link>
-                  <span> kabul ediyorum</span>
-                </Typography>
-              }
-              sx={{ mb: 2 }}
-            />
-            
-            <Button
-              type="submit"
-              fullWidth
-              variant="contained"
-              className="auth-button"
-              disabled={!agreeTerms}
-            >
-              Üye Ol
-            </Button>
-            
-            <div className="auth-divider">veya</div>
-            
-            <Box className="social-buttons">
-              <Button
-                variant="contained"
-                className="social-button google-button"
-                startIcon={<GoogleIcon />}
+          <div className="form-group">
+            <label htmlFor="password">Password</label>
+            <div className="input-with-icon">
+              <FaLock className="input-icon" />
+              <input
+                type={showPassword ? "text" : "password"}
+                id="password"
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                required
+                placeholder="Enter your password"
+              />
+              <button
+                type="button"
+                className="toggle-password"
+                onClick={() => setShowPassword(!showPassword)}
               >
-                Google ile Üye Ol
-              </Button>
-              <Button
-                variant="contained"
-                className="social-button facebook-button"
-                startIcon={<FacebookIcon />}
+                {showPassword ? <FaEyeSlash /> : <FaEye />}
+              </button>
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="confirmPassword">Confirm Password</label>
+            <div className="input-with-icon">
+              <FaLock className="input-icon" />
+              <input
+                type={showConfirmPassword ? "text" : "password"}
+                id="confirmPassword"
+                name="confirmPassword"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                required
+                placeholder="Confirm your password"
+              />
+              <button
+                type="button"
+                className="toggle-password"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
               >
-                Facebook ile Üye Ol
-              </Button>
-            </Box>
-            
-            <Box sx={{ textAlign: 'center', mt: 2 }}>
-              <Link component={RouterLink} to="/login" variant="body2" className="auth-link">
-                Zaten hesabınız var mı? Giriş yapın
-              </Link>
-            </Box>
-          </form>
-        </Box>
-      </Paper>
+                {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
+              </button>
+            </div>
+          </div>
+
+          <div className="form-options">
+            <label className="remember-me">
+              <input
+                type="checkbox"
+                checked={termsAccepted}
+                onChange={(e) => setTermsAccepted(e.target.checked)}
+              />
+              I agree to the <a href="/terms" className="terms-link">Terms and Conditions</a>
+            </label>
+          </div>
+
+          <button type="submit" className="submit-button">
+            Register
+          </button>
+        </form>
+
+        <div className="social-login">
+          <p>Or register with</p>
+          <div className="social-buttons">
+            <button className="social-button google">
+              <FaGoogle /> Google
+            </button>
+            <button className="social-button facebook">
+              <FaFacebook /> Facebook
+            </button>
+          </div>
+        </div>
+
+        <div className="auth-footer">
+          Already have an account? <Link to="/login">Login here</Link>
+        </div>
+      </div>
     </div>
   );
 };

@@ -1,245 +1,276 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { 
-  Container, 
-  Grid, 
-  Typography, 
-  Box, 
-  Card, 
-  CardContent, 
-  CardMedia, 
-  Button, 
-  Divider,
-  Chip,
-  Rating,
-  Paper,
-  CircularProgress
-} from '@mui/material';
-import LocationOnIcon from '@mui/icons-material/LocationOn';
-import HotelIcon from '@mui/icons-material/Hotel';
-import PoolIcon from '@mui/icons-material/Pool';
-import WifiIcon from '@mui/icons-material/Wifi';
-import RestaurantIcon from '@mui/icons-material/Restaurant';
-import { hotels } from '../data/hotels';
-import SearchBar from '../components/SearchBar';
+import { Link, useLocation } from 'react-router-dom';
+import axios from 'axios';
+import {
+  FaMapMarkerAlt,
+  FaHotel,
+  FaSwimmingPool,
+  FaWifi,
+  FaUtensils,
+  FaStar,
+  FaHeart,
+  FaRegHeart,
+  FaFilter
+} from 'react-icons/fa';
+import '../styles/SearchResults.css';
 
 const SearchResults = () => {
   const location = useLocation();
-  const navigate = useNavigate();
+  const searchParams = new URLSearchParams(location.search);
+  const initialFilters = {
+    location: searchParams.get('location') || '',
+    checkIn: searchParams.get('checkIn') || '',
+    checkOut: searchParams.get('checkOut') || '',
+    guests: searchParams.get('guests') || '1',
+    minPrice: '',
+    maxPrice: '',
+    rating: '',
+    features: []
+  };
+
+  const [hotels, setHotels] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [results, setResults] = useState([]);
-  const [searchParams, setSearchParams] = useState({
-    location: '',
-    checkIn: null,
-    checkOut: null,
-    guests: 2
-  });
+  const [error, setError] = useState('');
+  const [filters, setFilters] = useState(initialFilters);
+  const [favorites, setFavorites] = useState([]);
+  const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
-    // URL'den veya state'den arama parametrelerini al
-    const params = new URLSearchParams(location.search);
-    const locationParam = params.get('location') || location.state?.location || '';
-    const checkInParam = params.get('checkIn') || location.state?.checkIn || null;
-    const checkOutParam = params.get('checkOut') || location.state?.checkOut || null;
-    const guestsParam = parseInt(params.get('guests') || location.state?.guests || 2);
+    fetchHotels();
+    fetchFavorites();
+  }, []);
 
-    setSearchParams({
-      location: locationParam,
-      checkIn: checkInParam,
-      checkOut: checkOutParam,
-      guests: guestsParam
-    });
-
-    // Arama sonuçlarını filtrele
-    let filteredResults = [...hotels];
-    
-    if (locationParam) {
-      filteredResults = filteredResults.filter(hotel => 
-        hotel.name.toLowerCase().includes(locationParam.toLowerCase()) || 
-        hotel.location.toLowerCase().includes(locationParam.toLowerCase())
-      );
-    }
-
-    // Yükleme efekti için kısa bir gecikme
-    setTimeout(() => {
-      setResults(filteredResults);
+  const fetchHotels = async () => {
+    try {
+      const response = await axios.get('http://localhost:5002/api/hotels', {
+        params: {
+          location: filters.location,
+          checkIn: filters.checkIn,
+          checkOut: filters.checkOut,
+          guests: filters.guests,
+          minPrice: filters.minPrice,
+          maxPrice: filters.maxPrice,
+          rating: filters.rating,
+          features: filters.features.join(',')
+        }
+      });
+      setHotels(response.data);
       setLoading(false);
-    }, 800);
-  }, [location]);
-
-  const handleBookNow = (hotel) => {
-    navigate(`/booking/${hotel.id}`, {
-      state: {
-        checkIn: searchParams.checkIn,
-        checkOut: searchParams.checkOut,
-        guests: searchParams.guests
-      }
-    });
-  };
-
-  const handleViewHotel = (hotel) => {
-    navigate(`/hotel/${hotel.id}`, {
-      state: {
-        checkIn: searchParams.checkIn,
-        checkOut: searchParams.checkOut,
-        guests: searchParams.guests
-      }
-    });
-  };
-
-  const getAmenityIcon = (amenity) => {
-    switch (amenity.toLowerCase()) {
-      case 'havuz':
-        return <PoolIcon fontSize="small" />;
-      case 'wifi':
-        return <WifiIcon fontSize="small" />;
-      case 'restoran':
-        return <RestaurantIcon fontSize="small" />;
-      default:
-        return <HotelIcon fontSize="small" />;
+    } catch (error) {
+      console.error('Error fetching hotels:', error);
+      setError('Oteller yüklenirken bir hata oluştu.');
+      setLoading(false);
     }
   };
+
+  const fetchFavorites = async () => {
+    try {
+      const userId = localStorage.getItem('userId');
+      if (userId) {
+        const response = await axios.get(`http://localhost:5002/api/favorites/${userId}`);
+        setFavorites(response.data.map(fav => fav.hotel._id));
+      }
+    } catch (error) {
+      console.error('Error fetching favorites:', error);
+    }
+  };
+
+  const toggleFavorite = async (hotelId) => {
+    try {
+      const userId = localStorage.getItem('userId');
+      if (!userId) {
+        // Redirect to login or show login prompt
+        return;
+      }
+
+      if (favorites.includes(hotelId)) {
+        await axios.delete(`http://localhost:5002/api/favorites/${userId}/${hotelId}`);
+        setFavorites(favorites.filter(id => id !== hotelId));
+      } else {
+        await axios.post('http://localhost:5002/api/favorites', {
+          userId,
+          hotelId
+        });
+        setFavorites([...favorites, hotelId]);
+      }
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+    }
+  };
+
+  const handleFilterChange = (e) => {
+    const { name, value } = e.target;
+    setFilters(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleFeatureToggle = (feature) => {
+    setFilters(prev => ({
+      ...prev,
+      features: prev.features.includes(feature)
+        ? prev.features.filter(f => f !== feature)
+        : [...prev.features, feature]
+    }));
+  };
+
+  const applyFilters = () => {
+    fetchHotels();
+    setShowFilters(false);
+  };
+
+  if (loading) {
+    return <div className="loading">Yükleniyor...</div>;
+  }
+
+  if (error) {
+    return <div className="error-message">{error}</div>;
+  }
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 8 }}>
-      <SearchBar initialValues={searchParams} />
-      
-      <Box sx={{ mt: 4, mb: 2 }}>
-        <Typography variant="h5" component="h1" gutterBottom>
-          {searchParams.location 
-            ? `"${searchParams.location}" için arama sonuçları` 
-            : 'Tüm Oteller'}
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          {results.length} otel bulundu
-        </Typography>
-      </Box>
+    <div className="search-results-container">
+      <button
+        className="filter-toggle-btn"
+        onClick={() => setShowFilters(!showFilters)}
+      >
+        <FaFilter /> Filtreleri {showFilters ? 'Gizle' : 'Göster'}
+      </button>
 
-      {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}>
-          <CircularProgress />
-        </Box>
-      ) : results.length === 0 ? (
-        <Paper sx={{ p: 4, textAlign: 'center', mt: 4 }}>
-          <Typography variant="h6">
-            Aramanıza uygun sonuç bulunamadı.
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            Lütfen farklı bir konum veya tarih aralığı deneyin.
-          </Typography>
-        </Paper>
-      ) : (
-        <Grid container spacing={3}>
-          {results.map((hotel) => (
-            <Grid item xs={12} key={hotel.id}>
-              <Card 
-                sx={{ 
-                  display: 'flex', 
-                  flexDirection: { xs: 'column', md: 'row' },
-                  transition: 'transform 0.3s, box-shadow 0.3s',
-                  '&:hover': {
-                    transform: 'translateY(-4px)',
-                    boxShadow: 6
-                  }
-                }}
+      <div className={`filters-section ${showFilters ? 'show' : ''}`}>
+        <h2>Filtreler</h2>
+        <div className="filters-form">
+          <div className="form-group">
+            <label htmlFor="minPrice">Minimum Fiyat (₺)</label>
+            <input
+              type="number"
+              id="minPrice"
+              name="minPrice"
+              value={filters.minPrice}
+              onChange={handleFilterChange}
+              min="0"
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="maxPrice">Maksimum Fiyat (₺)</label>
+            <input
+              type="number"
+              id="maxPrice"
+              name="maxPrice"
+              value={filters.maxPrice}
+              onChange={handleFilterChange}
+              min="0"
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="rating">Minimum Puan</label>
+            <select
+              id="rating"
+              name="rating"
+              value={filters.rating}
+              onChange={handleFilterChange}
+            >
+              <option value="">Tümü</option>
+              <option value="3">3+ Yıldız</option>
+              <option value="4">4+ Yıldız</option>
+              <option value="5">5 Yıldız</option>
+            </select>
+          </div>
+
+          <div className="features-group">
+            <label>Özellikler</label>
+            <div className="features-list">
+              <button
+                type="button"
+                className={`feature-btn ${filters.features.includes('pool') ? 'active' : ''}`}
+                onClick={() => handleFeatureToggle('pool')}
               >
-                <CardMedia
-                  component="img"
-                  sx={{ 
-                    width: { xs: '100%', md: 300 }, 
-                    height: { xs: 200, md: 'auto' },
-                    objectFit: 'cover'
-                  }}
-                  image={hotel.image}
-                  alt={hotel.name}
-                  onClick={() => handleViewHotel(hotel)}
-                  style={{ cursor: 'pointer' }}
-                />
-                <Box sx={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
-                  <CardContent sx={{ flex: '1 0 auto', pb: 1 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <Box>
-                        <Typography component="h2" variant="h6" sx={{ fontWeight: 'bold', cursor: 'pointer' }} onClick={() => handleViewHotel(hotel)}>
-                          {hotel.name}
-                        </Typography>
-                        <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
-                          <LocationOnIcon fontSize="small" color="primary" sx={{ mr: 0.5 }} />
-                          <Typography variant="body2" color="text.secondary">
-                            {hotel.location}
-                          </Typography>
-                        </Box>
-                      </Box>
-                      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                        <Rating value={hotel.rating} precision={0.5} readOnly size="small" />
-                        <Typography variant="body2" color="text.secondary">
-                          {hotel.rating} / 5
-                        </Typography>
-                      </Box>
-                    </Box>
-                    
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-                      {hotel.description}
-                    </Typography>
-                    
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 2 }}>
-                      {hotel.amenities.slice(0, 4).map((amenity, index) => (
-                        <Chip 
-                          key={index}
-                          icon={getAmenityIcon(amenity)}
-                          label={amenity}
-                          size="small"
-                          variant="outlined"
-                        />
-                      ))}
-                      {hotel.amenities.length > 4 && (
-                        <Chip 
-                          label={`+${hotel.amenities.length - 4}`}
-                          size="small"
-                          variant="outlined"
-                        />
-                      )}
-                    </Box>
-                  </CardContent>
-                  
-                  <Divider />
-                  
-                  <Box sx={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
-                    alignItems: 'center',
-                    p: 2
-                  }}>
-                    <Box>
-                      <Typography variant="h6" color="primary" sx={{ fontWeight: 'bold' }}>
-                        ₺{hotel.price}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        gecelik / kişi başı
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', gap: 1 }}>
-                      <Button 
-                        variant="outlined" 
-                        onClick={() => handleViewHotel(hotel)}
-                      >
-                        Detayları Gör
-                      </Button>
-                      <Button 
-                        variant="contained" 
-                        color="primary"
-                        onClick={() => handleBookNow(hotel)}
-                      >
-                        Rezervasyon Yap
-                      </Button>
-                    </Box>
-                  </Box>
-                </Box>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
-      )}
-    </Container>
+                <FaSwimmingPool /> Havuz
+              </button>
+              <button
+                type="button"
+                className={`feature-btn ${filters.features.includes('wifi') ? 'active' : ''}`}
+                onClick={() => handleFeatureToggle('wifi')}
+              >
+                <FaWifi /> Wi-Fi
+              </button>
+              <button
+                type="button"
+                className={`feature-btn ${filters.features.includes('restaurant') ? 'active' : ''}`}
+                onClick={() => handleFeatureToggle('restaurant')}
+              >
+                <FaUtensils /> Restoran
+              </button>
+            </div>
+          </div>
+
+          <button type="button" className="apply-filters-btn" onClick={applyFilters}>
+            Filtreleri Uygula
+          </button>
+        </div>
+      </div>
+
+      <div className="hotels-grid">
+        {hotels.length === 0 ? (
+          <div className="no-results">
+            <p>Aramanıza uygun otel bulunamadı.</p>
+          </div>
+        ) : (
+          hotels.map(hotel => (
+            <div key={hotel._id} className="hotel-card">
+              <div className="hotel-image">
+                <img src={hotel.images[0]} alt={hotel.name} />
+                <button
+                  className="favorite-btn"
+                  onClick={() => toggleFavorite(hotel._id)}
+                >
+                  {favorites.includes(hotel._id) ? (
+                    <FaHeart className="favorite" />
+                  ) : (
+                    <FaRegHeart />
+                  )}
+                </button>
+              </div>
+
+              <div className="hotel-content">
+                <Link to={`/hotel/${hotel._id}`} className="hotel-name">
+                  <h2>{hotel.name}</h2>
+                </Link>
+
+                <div className="hotel-location">
+                  <FaMapMarkerAlt />
+                  <span>{hotel.location}</span>
+                </div>
+
+                <div className="hotel-rating">
+                  <FaStar />
+                  <span>{hotel.rating.toFixed(1)}</span>
+                </div>
+
+                <div className="hotel-features">
+                  {hotel.features.map((feature, index) => (
+                    <span key={index} className="feature-tag">
+                      {feature}
+                    </span>
+                  ))}
+                </div>
+
+                <div className="hotel-price">
+                  <span className="price">{hotel.price}₺</span>
+                  <span className="per-night">/ gece</span>
+                </div>
+
+                <Link to={`/hotel/${hotel._id}`} className="view-details-btn">
+                  Detayları Görüntüle
+                </Link>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
   );
 };
 

@@ -1,162 +1,157 @@
-import React, { useState } from 'react';
-import {
-  Container,
-  Typography,
-  Box,
-  TextField,
-  Button,
-  Grid,
-  Card,
-  CardContent,
-  Rating,
-  Alert,
-  CircularProgress
-} from '@mui/material';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import '../styles/Complaints.css';
 
 const Complaints = () => {
-  const navigate = useNavigate();
+  const [complaints, setComplaints] = useState([]);
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    hotelName: '',
-    rating: 0,
-    comment: ''
+    title: '',
+    description: '',
+    hotelId: '',
+    userId: '',
   });
-  const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
+  const [hotels, setHotels] = useState([]);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+  const navigate = useNavigate();
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+  useEffect(() => {
+    fetchHotels();
+    fetchComplaints();
+  }, []);
+
+  const fetchHotels = async () => {
+    try {
+      const response = await axios.get('http://localhost:5002/api/hotels');
+      setHotels(response.data);
+    } catch (error) {
+      console.error('Error fetching hotels:', error);
+      setError('Oteller yüklenirken bir hata oluştu.');
+    }
   };
 
-  const handleRatingChange = (event, newValue) => {
-    setFormData(prev => ({
-      ...prev,
-      rating: newValue
-    }));
+  const fetchComplaints = async () => {
+    try {
+      const userId = localStorage.getItem('userId');
+      const response = await axios.get(`http://localhost:5002/api/complaints/user/${userId}`);
+      setComplaints(response.data);
+    } catch (error) {
+      console.error('Error fetching complaints:', error);
+      setError('Şikayetler yüklenirken bir hata oluştu.');
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
-
     try {
-      const response = await fetch('http://localhost:5002/api/complaints', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
-
-      if (response.ok) {
-        setSuccess(true);
-        setFormData({
-          name: '',
-          email: '',
-          hotelName: '',
-          rating: 0,
-          comment: ''
-        });
-        setTimeout(() => setSuccess(false), 3000);
-      }
+      const userId = localStorage.getItem('userId');
+      const complaintData = {
+        ...formData,
+        userId,
+      };
+      await axios.post('http://localhost:5002/api/complaints', complaintData);
+      setMessage('Şikayetiniz başarıyla gönderildi.');
+      setFormData({ title: '', description: '', hotelId: '', userId: '' });
+      fetchComplaints();
     } catch (error) {
-      console.error('Şikayet gönderilirken hata oluştu:', error);
-    } finally {
-      setLoading(false);
+      console.error('Error submitting complaint:', error);
+      setError('Şikayet gönderilirken bir hata oluştu.');
     }
   };
 
-  return (
-    <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
-      <Typography variant="h4" component="h1" gutterBottom>
-        Şikayet ve Yorumlar
-      </Typography>
-      
-      {success && (
-        <Alert severity="success" sx={{ mb: 2 }}>
-          Şikayetiniz başarıyla gönderildi. Teşekkür ederiz!
-        </Alert>
-      )}
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    });
+  };
 
-      <Card sx={{ mb: 4 }}>
-        <CardContent>
-          <form onSubmit={handleSubmit}>
-            <Grid container spacing={3}>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  required
-                  fullWidth
-                  label="Adınız"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleChange}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  required
-                  fullWidth
-                  label="E-posta"
-                  name="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  required
-                  fullWidth
-                  label="Otel Adı"
-                  name="hotelName"
-                  value={formData.hotelName}
-                  onChange={handleChange}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <Typography>Değerlendirme:</Typography>
-                  <Rating
-                    name="rating"
-                    value={formData.rating}
-                    onChange={handleRatingChange}
-                  />
-                </Box>
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  required
-                  fullWidth
-                  multiline
-                  rows={4}
-                  label="Yorumunuz"
-                  name="comment"
-                  value={formData.comment}
-                  onChange={handleChange}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <Button
-                  type="submit"
-                  variant="contained"
-                  color="primary"
-                  disabled={loading}
-                  fullWidth
-                >
-                  {loading ? <CircularProgress size={24} /> : 'Gönder'}
-                </Button>
-              </Grid>
-            </Grid>
-          </form>
-        </CardContent>
-      </Card>
-    </Container>
+  return (
+    <div className="complaints-container">
+      <div className="complaints-form-section">
+        <h2>Yeni Şikayet Oluştur</h2>
+        <form onSubmit={handleSubmit} className="complaints-form">
+          <div className="form-group">
+            <label htmlFor="title">Başlık</label>
+            <input
+              type="text"
+              id="title"
+              name="title"
+              value={formData.title}
+              onChange={handleChange}
+              required
+            />
+          </div>
+          
+          <div className="form-group">
+            <label htmlFor="hotelId">Otel</label>
+            <select
+              id="hotelId"
+              name="hotelId"
+              value={formData.hotelId}
+              onChange={handleChange}
+              required
+            >
+              <option value="">Otel Seçin</option>
+              {hotels.map((hotel) => (
+                <option key={hotel._id} value={hotel._id}>
+                  {hotel.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="description">Açıklama</label>
+            <textarea
+              id="description"
+              name="description"
+              value={formData.description}
+              onChange={handleChange}
+              required
+              rows="4"
+            />
+          </div>
+
+          <button type="submit" className="submit-btn">
+            Şikayet Gönder
+          </button>
+        </form>
+
+        {message && <div className="success-message">{message}</div>}
+        {error && <div className="error-message">{error}</div>}
+      </div>
+
+      <div className="complaints-list-section">
+        <h2>Şikayetlerim</h2>
+        {complaints.length === 0 ? (
+          <p className="no-complaints">Henüz bir şikayetiniz bulunmamaktadır.</p>
+        ) : (
+          <div className="complaints-list">
+            {complaints.map((complaint) => (
+              <div key={complaint._id} className="complaint-card">
+                <h3>{complaint.title}</h3>
+                <p className="hotel-name">
+                  Otel: {hotels.find(h => h._id === complaint.hotelId)?.name || 'Bilinmeyen Otel'}
+                </p>
+                <p className="description">{complaint.description}</p>
+                <p className="status">
+                  Durum: <span className={`status-${complaint.status.toLowerCase()}`}>
+                    {complaint.status === 'PENDING' ? 'Beklemede' :
+                     complaint.status === 'IN_PROGRESS' ? 'İşleme Alındı' :
+                     complaint.status === 'RESOLVED' ? 'Çözüldü' : 'Bilinmiyor'}
+                  </span>
+                </p>
+                <p className="date">
+                  {new Date(complaint.createdAt).toLocaleDateString('tr-TR')}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
   );
 };
 

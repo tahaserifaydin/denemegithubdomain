@@ -1,26 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Box,
-  Typography,
-  Rating,
-  TextField,
-  Button,
-  Card,
-  CardContent,
-  Avatar,
-  Divider,
-} from '@mui/material';
-import { useParams } from 'react-router-dom';
+import { FaStar } from 'react-icons/fa';
+import './Reviews.css';
 
-function Reviews() {
+const Reviews = ({ hotelId }) => {
   const [reviews, setReviews] = useState([]);
-  const [newReview, setNewReview] = useState({
-    rating: 0,
-    comment: '',
-  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const { hotelId } = useParams();
+  const [newReview, setNewReview] = useState({
+    rating: 0,
+    comment: ''
+  });
+  const [hoverRating, setHoverRating] = useState(0);
 
   useEffect(() => {
     fetchReviews();
@@ -28,126 +18,125 @@ function Reviews() {
 
   const fetchReviews = async () => {
     try {
-      const response = await fetch(`http://localhost:5001/api/hotels/${hotelId}/reviews`);
-      if (!response.ok) {
-        throw new Error('Yorumlar yüklenirken bir hata oluştu');
-      }
+      const response = await fetch(`http://localhost:5002/api/reviews/${hotelId}`);
       const data = await response.json();
       setReviews(data);
       setLoading(false);
     } catch (err) {
-      setError(err.message);
+      setError('Yorumlar yüklenirken bir hata oluştu.');
       setLoading(false);
     }
   };
 
+  const handleRatingClick = (rating) => {
+    setNewReview(prev => ({ ...prev, rating }));
+  };
+
+  const handleRatingHover = (rating) => {
+    setHoverRating(rating);
+  };
+
+  const handleRatingLeave = () => {
+    setHoverRating(0);
+  };
+
+  const handleCommentChange = (e) => {
+    setNewReview(prev => ({ ...prev, comment: e.target.value }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const token = localStorage.getItem('token');
-    
-    if (!token) {
-      alert('Yorum yapmak için giriş yapmalısınız');
-      return;
-    }
-
     try {
-      const response = await fetch(`http://localhost:5001/api/hotels/${hotelId}/reviews`, {
+      const response = await fetch('http://localhost:5002/api/reviews', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify(newReview),
+        body: JSON.stringify({
+          hotelId,
+          ...newReview
+        }),
       });
 
-      if (!response.ok) {
-        throw new Error('Yorum eklenirken bir hata oluştu');
+      if (response.ok) {
+        setNewReview({ rating: 0, comment: '' });
+        fetchReviews();
+      } else {
+        setError('Yorum gönderilirken bir hata oluştu.');
       }
-
-      const data = await response.json();
-      setReviews([...reviews, data]);
-      setNewReview({ rating: 0, comment: '' });
     } catch (err) {
-      setError(err.message);
+      setError('Yorum gönderilirken bir hata oluştu.');
     }
   };
 
-  if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-        <Typography>Yükleniyor...</Typography>
-      </Box>
-    );
-  }
-
-  if (error) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-        <Typography color="error">{error}</Typography>
-      </Box>
-    );
-  }
+  if (loading) return <div className="loading">Yükleniyor...</div>;
+  if (error) return <div className="error">{error}</div>;
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h5" gutterBottom>
-        Değerlendirmeler
-      </Typography>
+    <div className="reviews-container">
+      <h2>Misafir Yorumları</h2>
 
-      <Box component="form" onSubmit={handleSubmit} sx={{ mb: 4 }}>
-        <Typography variant="subtitle1" gutterBottom>
-          Değerlendirmenizi Yazın
-        </Typography>
-        <Box sx={{ mb: 2 }}>
-          <Rating
-            value={newReview.rating}
-            onChange={(event, newValue) => {
-              setNewReview({ ...newReview, rating: newValue });
-            }}
-          />
-        </Box>
-        <TextField
-          fullWidth
-          multiline
-          rows={4}
-          variant="outlined"
-          placeholder="Yorumunuzu yazın..."
+      <form onSubmit={handleSubmit} className="review-form">
+        <h3>Yorum Yap</h3>
+        <div className="rating-input">
+          {[1, 2, 3, 4, 5].map((rating) => (
+            <button
+              key={rating}
+              type="button"
+              className={`star-button ${(hoverRating || newReview.rating) >= rating ? 'active' : ''}`}
+              onClick={() => handleRatingClick(rating)}
+              onMouseEnter={() => handleRatingHover(rating)}
+              onMouseLeave={handleRatingLeave}
+            >
+              <FaStar />
+            </button>
+          ))}
+        </div>
+        <textarea
           value={newReview.comment}
-          onChange={(e) => setNewReview({ ...newReview, comment: e.target.value })}
-          sx={{ mb: 2 }}
+          onChange={handleCommentChange}
+          placeholder="Deneyiminizi paylaşın..."
+          required
         />
-        <Button type="submit" variant="contained" color="primary">
-          Yorum Yap
-        </Button>
-      </Box>
+        <button type="submit" className="submit-button">
+          Yorumu Gönder
+        </button>
+      </form>
 
-      <Divider sx={{ my: 3 }} />
+      <div className="reviews-divider" />
 
       {reviews.length === 0 ? (
-        <Typography>Henüz yorum yapılmamış.</Typography>
+        <p className="no-reviews">Henüz yorum yapılmamış.</p>
       ) : (
-        reviews.map((review) => (
-          <Card key={review.id} sx={{ mb: 2 }}>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Avatar sx={{ mr: 2 }}>{review.userName[0]}</Avatar>
-                <Box>
-                  <Typography variant="subtitle1">{review.userName}</Typography>
-                  <Rating value={review.rating} readOnly size="small" />
-                </Box>
-              </Box>
-              <Typography variant="body1" sx={{ mt: 1 }}>
-                {review.comment}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                {new Date(review.date).toLocaleDateString()}
-              </Typography>
-            </CardContent>
-          </Card>
-        ))
+        <div className="reviews-list">
+          {reviews.map((review) => (
+            <div key={review._id} className="review-card">
+              <div className="review-header">
+                <div className="user-avatar">
+                  {review.user.name.charAt(0).toUpperCase()}
+                </div>
+                <div className="review-info">
+                  <h4>{review.user.name}</h4>
+                  <div className="rating-display">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <FaStar
+                        key={star}
+                        className={`star ${star <= review.rating ? 'filled' : ''}`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <p className="review-comment">{review.comment}</p>
+              <span className="review-date">
+                {new Date(review.createdAt).toLocaleDateString()}
+              </span>
+            </div>
+          ))}
+        </div>
       )}
-    </Box>
+    </div>
   );
-}
+};
 
 export default Reviews; 

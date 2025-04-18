@@ -1,34 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Container,
-  Grid,
-  Card,
-  CardMedia,
-  CardContent,
-  Typography,
-  Box,
-  Rating,
-  Button,
-  TextField,
-  Slider,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Chip,
-  Stack,
-  IconButton,
-  Tooltip,
-} from '@mui/material';
-import {
-  LocationOn,
-  Star,
-  Favorite,
-  FavoriteBorder,
-  FilterList,
-  Search,
-} from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import { FaMapMarkerAlt, FaStar, FaHeart, FaRegHeart, FaFilter, FaSearch } from 'react-icons/fa';
+import '../styles/HotelList.css';
 
 const HotelList = () => {
   const [hotels, setHotels] = useState([]);
@@ -49,12 +22,12 @@ const HotelList = () => {
 
   const fetchHotels = async () => {
     try {
-      const response = await fetch('http://localhost:3000/api/hotels');
+      const response = await fetch('http://localhost:5002/api/hotels');
       const data = await response.json();
       setHotels(data);
       setLoading(false);
     } catch (error) {
-      console.error('Otel verileri yüklenirken hata oluştu:', error);
+      console.error('Error loading hotel data:', error);
       setLoading(false);
     }
   };
@@ -74,11 +47,11 @@ const HotelList = () => {
       if (filters.maxPrice) queryParams.append('maxPrice', filters.maxPrice);
       if (filters.rating) queryParams.append('rating', filters.rating);
 
-      const response = await fetch(`http://localhost:3000/api/hotels/search?${queryParams}`);
+      const response = await fetch(`http://localhost:5002/api/hotels/search?${queryParams}`);
       const data = await response.json();
       setHotels(data);
     } catch (error) {
-      console.error('Arama yapılırken hata oluştu:', error);
+      console.error('Error during search:', error);
     }
   };
 
@@ -87,198 +60,166 @@ const HotelList = () => {
   };
 
   const handleToggleFavorite = (hotelId) => {
-    // Favori işlemleri burada yapılacak
-    console.log('Favoriye eklendi:', hotelId);
+    // Favorite functionality will be implemented here
+    console.log('Added to favorites:', hotelId);
+  };
+
+  const renderStars = (rating) => {
+    const stars = [];
+    for (let i = 1; i <= 5; i++) {
+      if (i <= rating) {
+        stars.push(<FaStar key={i} className="stars" />);
+      } else if (i - 0.5 <= rating) {
+        stars.push(<FaStar key={i} className="stars" style={{ opacity: 0.5 }} />);
+      } else {
+        stars.push(<FaStar key={i} className="stars" style={{ opacity: 0.2 }} />);
+      }
+    }
+    return stars;
   };
 
   if (loading) {
-    return (
-      <Container>
-        <Typography>Yükleniyor...</Typography>
-      </Container>
-    );
+    return <div className="loading">Loading...</div>;
   }
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
-      {/* Arama ve Filtreler */}
-      <Box sx={{ mb: 4 }}>
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={4}>
-            <TextField
-              fullWidth
-              label="Konum"
+    <div className="hotel-list-container">
+      {/* Search and Filters */}
+      <div className="search-filters">
+        <div className="search-filters-grid">
+          <div className="search-input">
+            <FaMapMarkerAlt className="search-icon" />
+            <input
+              type="text"
+              placeholder="Location"
               value={filters.location}
               onChange={(e) => handleFilterChange('location', e.target.value)}
-              InputProps={{
-                startAdornment: <LocationOn sx={{ mr: 1, color: 'action.active' }} />,
-              }}
             />
-          </Grid>
-          <Grid item xs={12} md={2}>
-            <Button
-              fullWidth
-              variant="contained"
-              startIcon={<Search />}
-              onClick={handleSearch}
-            >
-              Ara
-            </Button>
-          </Grid>
-          <Grid item xs={12} md={2}>
-            <Button
-              fullWidth
-              variant="outlined"
-              startIcon={<FilterList />}
-              onClick={() => setShowFilters(!showFilters)}
-            >
-              Filtreler
-            </Button>
-          </Grid>
-        </Grid>
+          </div>
+          <button className="search-button" onClick={handleSearch}>
+            <FaSearch /> Search
+          </button>
+          <button className="filter-button" onClick={() => setShowFilters(!showFilters)}>
+            <FaFilter /> Filters
+          </button>
+        </div>
 
-        {/* Filtre Paneli */}
+        {/* Filter Panel */}
         {showFilters && (
-          <Box sx={{ mt: 3, p: 3, bgcolor: 'background.paper', borderRadius: 1 }}>
-            <Grid container spacing={3}>
-              <Grid item xs={12} md={4}>
-                <Typography gutterBottom>Fiyat Aralığı</Typography>
-                <Slider
-                  value={[filters.minPrice, filters.maxPrice]}
-                  onChange={(_, newValue) => {
-                    handleFilterChange('minPrice', newValue[0]);
-                    handleFilterChange('maxPrice', newValue[1]);
-                  }}
-                  valueLabelDisplay="auto"
-                  min={0}
-                  max={5000}
-                  step={100}
+          <div className="filter-panel">
+            <div className="filter-grid">
+              <div className="filter-section">
+                <h3>Price Range</h3>
+                <input
+                  type="range"
+                  className="price-range"
+                  min="0"
+                  max="5000"
+                  step="100"
+                  value={filters.maxPrice}
+                  onChange={(e) => handleFilterChange('maxPrice', parseInt(e.target.value))}
                 />
-                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <Typography variant="body2">₺{filters.minPrice}</Typography>
-                  <Typography variant="body2">₺{filters.maxPrice}</Typography>
-                </Box>
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <Typography gutterBottom>Minimum Puan</Typography>
-                <Rating
-                  value={filters.rating}
-                  onChange={(_, newValue) => handleFilterChange('rating', newValue)}
-                  precision={0.5}
-                />
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <FormControl fullWidth>
-                  <InputLabel>Sıralama</InputLabel>
-                  <Select
-                    value={filters.sortBy}
-                    label="Sıralama"
-                    onChange={(e) => handleFilterChange('sortBy', e.target.value)}
-                  >
-                    <MenuItem value="price">Fiyata Göre</MenuItem>
-                    <MenuItem value="rating">Puana Göre</MenuItem>
-                    <MenuItem value="name">İsme Göre</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-            </Grid>
-          </Box>
+                <div className="price-labels">
+                  <span>${filters.minPrice}</span>
+                  <span>${filters.maxPrice}</span>
+                </div>
+              </div>
+              <div className="filter-section">
+                <h3>Minimum Rating</h3>
+                <div className="rating-filter">
+                  {renderStars(filters.rating)}
+                  <span className="rating-value">({filters.rating})</span>
+                </div>
+              </div>
+              <div className="filter-section">
+                <h3>Sort By</h3>
+                <select
+                  className="sort-select"
+                  value={filters.sortBy}
+                  onChange={(e) => handleFilterChange('sortBy', e.target.value)}
+                >
+                  <option value="price">Price</option>
+                  <option value="rating">Rating</option>
+                  <option value="name">Name</option>
+                </select>
+              </div>
+            </div>
+          </div>
         )}
-      </Box>
+      </div>
 
-      {/* Otel Listesi */}
-      <Grid container spacing={3}>
+      {/* Hotel List */}
+      <div className="hotels-grid">
         {hotels.map((hotel) => (
-          <Grid item xs={12} key={hotel.id}>
-            <Card
-              sx={{
-                display: 'flex',
-                height: 200,
-                cursor: 'pointer',
-                '&:hover': {
-                  boxShadow: 6,
-                },
-              }}
-              onClick={() => handleHotelClick(hotel.id)}
-            >
-              <CardMedia
-                component="img"
-                sx={{ width: 300 }}
-                image={hotel.image}
-                alt={hotel.name}
-              />
-              <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <Box>
-                    <Typography variant="h6" component="div">
-                      {hotel.name}
-                    </Typography>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                      <LocationOn fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />
-                      <Typography variant="body2" color="text.secondary">
-                        {hotel.location}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                      <Rating value={hotel.rating} precision={0.1} readOnly size="small" />
-                      <Typography variant="body2" sx={{ ml: 1 }}>
-                        ({hotel.rating})
-                      </Typography>
-                    </Box>
-                  </Box>
-                  <Tooltip title="Favorilere Ekle">
-                    <IconButton
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleToggleFavorite(hotel.id);
-                      }}
-                    >
-                      <FavoriteBorder />
-                    </IconButton>
-                  </Tooltip>
-                </Box>
+          <div
+            key={hotel.id}
+            className="hotel-card"
+            onClick={() => handleHotelClick(hotel.id)}
+          >
+            <img
+              className="hotel-image"
+              src={hotel.image}
+              alt={hotel.name}
+            />
+            <div className="hotel-content">
+              <div className="hotel-header">
+                <div>
+                  <h2 className="hotel-title">{hotel.name}</h2>
+                  <div className="hotel-location">
+                    <FaMapMarkerAlt />
+                    <span>{hotel.location}</span>
+                  </div>
+                  <div className="hotel-rating">
+                    <div className="rating-stars">
+                      {renderStars(hotel.rating)}
+                    </div>
+                    <span className="rating-value">({hotel.rating})</span>
+                  </div>
+                </div>
+                <button
+                  className="favorite-button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleToggleFavorite(hotel.id);
+                  }}
+                >
+                  <FaRegHeart />
+                </button>
+              </div>
 
-                <Stack direction="row" spacing={1} sx={{ mt: 1, mb: 2 }}>
-                  {hotel.amenities.slice(0, 3).map((amenity, index) => (
-                    <Chip
-                      key={index}
-                      label={amenity}
-                      size="small"
-                      sx={{ backgroundColor: 'primary.light', color: 'white' }}
-                    />
-                  ))}
-                  {hotel.amenities.length > 3 && (
-                    <Chip
-                      label={`+${hotel.amenities.length - 3}`}
-                      size="small"
-                      sx={{ backgroundColor: 'grey.200' }}
-                    />
-                  )}
-                </Stack>
+              <div className="amenities">
+                {hotel.amenities.slice(0, 3).map((amenity, index) => (
+                  <span key={index} className="amenity-chip">
+                    {amenity}
+                  </span>
+                ))}
+                {hotel.amenities.length > 3 && (
+                  <span className="more-amenities">
+                    +{hotel.amenities.length - 3}
+                  </span>
+                )}
+              </div>
 
-                <Box sx={{ mt: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Typography variant="h6" color="primary">
-                    ₺{hotel.price}
-                    <Typography component="span" variant="body2" color="text.secondary">
-                      {' '}/ gece
-                    </Typography>
-                  </Typography>
-                  <Button
-                    variant="contained"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleHotelClick(hotel.id);
-                    }}
-                  >
-                    Detayları Gör
-                  </Button>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
+              <div className="hotel-footer">
+                <div className="hotel-price">
+                  ${hotel.price}
+                  <span className="price-period"> / night</span>
+                </div>
+                <button
+                  className="view-details-button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleHotelClick(hotel.id);
+                  }}
+                >
+                  View Details
+                </button>
+              </div>
+            </div>
+          </div>
         ))}
-      </Grid>
-    </Container>
+      </div>
+    </div>
   );
 };
 
